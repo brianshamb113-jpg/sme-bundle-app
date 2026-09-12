@@ -1,0 +1,35 @@
+        <footer class="text-center text-gray-400 text-sm py-6">
+            <p>&copy; 2026 SME Bundles Tanzania. <%= lang === 'sw' ? 'Imetengenezwa kwa ❤️ Tanzania' : 'Made with ❤️ in Tanzania' %> 🇹🇿</p>
+        </footer>
+    </div>
+
+    <script>
+        function toggleLanguage() {
+            fetch('/toggle-language')
+                .then(function(r) { return r.json(); })
+                .then(function(data) { if (data.success) window.location.reload(); })
+                .catch(function() { window.location.reload(); });
+        }
+        var isDark = true;
+        function toggleTheme() {
+            isDark = !isDark;
+            document.body.classList.toggle('light-theme', !isDark);
+            var icon = document.getElementById('themeIcon');
+            if (icon) icon.textContent = isDark ? '🌙' : '☀️';
+        }
+    </script>
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/sw.js')
+                .then(function(reg) {
+                    console.log('✅ Service Worker registered!');
+                })
+                .catch(function(err) {
+                    console.log('❌ Service Worker failed:', err);
+                });
+        });
+    }
+</script>
+</body>
+</html>
