@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const port = process.env.PORT || 3000;
 const bundleService = require('./services/bundleService');
+const FileStore = require('session-file-store')(session)
 
 // DEBUG - Remove these two lines later
 console.log('🔍 PLANS loaded:', PLANS ? PLANS.length + ' plans' : 'UNDEFINED!');
@@ -23,13 +24,15 @@ app.use(express.static('public'));
 
 // ========== SESSION SETUP ==========
 app.use(session({
+    store: new FileStore({
+        path: './sessions', // Sessions will be saved in a 'sessions' folder
+        ttl: 24 * 60 * 60, // Session lives for 24 hours (in seconds)
+        retries: 0
+    }),
     secret: 'sme-bundle-secret-key-2026',
     resave: false,
     saveUninitialized: true,
-    cookie: { 
-        secure: false,
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
+    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
 }));
 
 // ========== LANGUAGE MIDDLEWARE ==========
