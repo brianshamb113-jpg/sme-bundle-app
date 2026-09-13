@@ -1,149 +1,63 @@
-<!DOCTYPE html>
-<html lang="<%= lang === 'sw' ? 'sw' : 'en' %>">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= lang === 'sw' ? 'Jisajili' : 'Register' %> - SME Bundles</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-    // Language toggle via fetch (no page reload needed)
-    function toggleLanguage() {
-        fetch('/toggle-language')
-            .then(response => {
-                // After toggling, reload the page to show the new language
-                window.location.reload();
-            })
-            .catch(error => {
-                console.error('Language toggle failed:', error);
-                // Fallback: just reload the page
-                window.location.reload();
-            });
-    }
-</script>
-    <style>
-        * { font-family: 'Inter', sans-serif; }
-        .glass {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-        }
-        .gradient-text {
-            background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .animated-bg {
-            background: linear-gradient(-45deg, #0a0a1a, #1a1a3e, #0d1b2a, #1a0a2e);
-            background-size: 400% 400%;
-            animation: gradient 15s ease infinite;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        @keyframes gradient {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        .theme-toggle {
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .theme-toggle:hover {
-            transform: scale(1.1);
-        }
-        body.light-theme .animated-bg {
-            background: linear-gradient(-45deg, #f0f4ff, #e8eeff, #f5f0ff, #f0f4ff);
-            background-size: 400% 400%;
-            animation: gradient 15s ease infinite;
-        }
-        body.light-theme .glass {
-            background: rgba(255, 255, 255, 0.7);
-            border: 1px solid rgba(0, 0, 0, 0.08);
-        }
-        body.light-theme .text-white {
-            color: #1a1a2e !important;
-        }
-        body.light-theme .text-gray-400 {
-            color: #666 !important;
-        }
-        body.light-theme input {
-            color: #1a1a2e !important;
-        }
-    </style>
-</head>
-<body>
-    <div class="animated-bg">
-        <div class="glass rounded-2xl p-8 max-w-md w-full">
-            <div class="flex justify-end mb-4">
-                <button onclick="toggleTheme()" class="theme-toggle text-2xl" id="themeIcon">🌙</button>
+<%- include('partials/header') %>
+
+<div class="max-w-md mx-auto px-4 py-8">
+    <div class="glass rounded-2xl p-8">
+        <div class="text-center mb-6">
+            <span class="text-4xl">📝</span>
+            <h2 class="text-2xl font-bold text-white mt-2">
+                <%= lang === 'sw' ? 'Jisajili' : 'Create Account' %>
+            </h2>
+            <p class="text-gray-400 text-sm">
+                <%= lang === 'sw' ? 'Jisajili ili kuanza' : 'Sign up to get started' %>
+            </p>
+        </div>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="bg-red-500/20 border border-red-500/30 text-red-300 p-3 rounded-xl text-sm mb-4 text-center">
+                <%= error %>
             </div>
+        <% } %>
 
-            <div class="text-center mb-6">
-                <span class="text-4xl">📝</span>
-                <h2 class="text-2xl font-bold text-white mt-2"><%= lang === 'sw' ? 'Jisajili' : 'Create Account' %></h2>
-                <p class="text-gray-400 text-sm"><%= lang === 'sw' ? 'Jisajili ili kuanza' : 'Sign up to get started' %></p>
+        <form action="/register" method="POST">
+            <div class="mb-4">
+                <label class="block text-white text-sm font-semibold mb-2">
+                    <%= lang === 'sw' ? 'Jina Kamili' : 'Full Name' %>
+                </label>
+                <input type="text" name="fullname" placeholder="<%= lang === 'sw' ? 'Jina lako' : 'Your name' %>" required
+                       class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
+            <div class="mb-4">
+                <label class="block text-white text-sm font-semibold mb-2">
+                    <%= lang === 'sw' ? 'Namba ya Simu' : 'Phone Number' %>
+                </label>
+                <input type="tel" name="phone" placeholder="0712345678" required
+                       class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="mb-6">
+                <label class="block text-white text-sm font-semibold mb-2">
+                    <%= lang === 'sw' ? 'Nenosiri' : 'Password' %>
+                </label>
+                <input type="password" name="password" placeholder="<%= lang === 'sw' ? 'Unda nenosiri' : 'Create a password' %>" required minlength="6"
+                       class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button type="submit" class="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl font-semibold text-white hover:scale-105 transition duration-300">
+                <%= lang === 'sw' ? 'Jisajili' : 'Register' %>
+            </button>
+        </form>
 
-            <% if (error) { %>
-                <div class="bg-red-500/20 border border-red-500/30 text-red-300 p-3 rounded-xl text-sm mb-4">
-                    <%= error %>
-                </div>
-            <% } %>
+        <p class="text-center text-gray-400 text-sm mt-4">
+            <%= lang === 'sw' ? 'Tayari una akaunti?' : 'Already have an account?' %>
+            <a href="/login" class="text-blue-400 font-semibold hover:text-blue-300 transition">
+                <%= lang === 'sw' ? 'Ingia' : 'Login' %>
+            </a>
+        </p>
 
-            <form action="/register" method="POST">
-                <div class="mb-4">
-                    <label class="block text-white text-sm font-semibold mb-2">
-                        <%= lang === 'sw' ? 'Jina Kamili' : 'Full Name' %>
-                    </label>
-                    <input type="text" name="fullname" placeholder="<%= lang === 'sw' ? 'Jina lako kamili' : 'Your full name' %>" required
-                           class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-white text-sm font-semibold mb-2">
-                        <%= lang === 'sw' ? 'Namba ya Simu' : 'Phone Number' %>
-                    </label>
-                    <input type="tel" name="phone" placeholder="0712345678" required
-                           class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div class="mb-6">
-                    <label class="block text-white text-sm font-semibold mb-2">
-                        <%= lang === 'sw' ? 'Nenosiri' : 'Password' %>
-                    </label>
-                    <input type="password" name="password" placeholder="<%= lang === 'sw' ? 'Unda nenosiri' : 'Create a password' %>" required
-                           class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <button type="submit" class="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl font-semibold text-white hover:scale-105 transition duration-300">
-                    <%= lang === 'sw' ? 'Jisajili' : 'Register' %>
-                </button>
-            </form>
-            <div class="flex justify-center gap-4 mt-4">
-    <!-- Language Toggle -->
-    <a href="/toggle-language" class="text-sm text-white/60 hover:text-white transition">
-        <%= lang === 'sw' ? '🇬🇧 English' : '🇹🇿 Kiswahili' %>
-    </a>
-    <a href="/" class="text-sm text-white/60 hover:text-white transition">🏠 Home</a>
-</div>
-
-            <p class="text-center text-gray-400 text-sm mt-4">
-                <%= lang === 'sw' ? 'Tayari una akaunti?' : 'Already have an account?' %>
-                <a href="/login" class="text-blue-400 font-semibold hover:text-blue-300 transition">
-                    <%= lang === 'sw' ? 'Ingia' : 'Login' %>
-                </a>
-            </p>           
+        <div class="text-center mt-4">
+            <a href="/" class="text-sm text-gray-500 hover:text-white transition">
+                ← <%= lang === 'sw' ? 'Nyumbani' : 'Home' %>
+            </a>
         </div>
     </div>
+</div>
 
-    <script>
-        let isDark = true;
-        function toggleTheme() {
-            isDark = !isDark;
-            document.body.classList.toggle('light-theme', !isDark);
-            document.getElementById('themeIcon').textContent = isDark ? '🌙' : '☀️';
-        }
-    </script>
-</body>
-</html>
+<%- include('partials/footer') %>
