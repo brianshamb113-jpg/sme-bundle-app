@@ -1,149 +1,77 @@
-<!DOCTYPE html>
-<html lang="<%= lang === 'sw' ? 'sw' : 'en' %>">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= lang === 'sw' ? 'Dashibodi ya Admin' : 'Admin Dashboard' %> - SME Bundles</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-    // Language toggle via fetch (no page reload needed)
-    function toggleLanguage() {
-        fetch('/toggle-language')
-            .then(response => {
-                // After toggling, reload the page to show the new language
-                window.location.reload();
-            })
-            .catch(error => {
-                console.error('Language toggle failed:', error);
-                // Fallback: just reload the page
-                window.location.reload();
-            });
-    }
-</script>
-    <style>
-        * { font-family: 'Inter', sans-serif; }
-        .glass {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-        }
-        .gradient-text {
-            background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .animated-bg {
-            background: linear-gradient(-45deg, #0a0a1a, #1a1a3e, #0d1b2a, #1a0a2e);
-            background-size: 400% 400%;
-            animation: gradient 15s ease infinite;
-            min-height: 100vh;
-        }
-        @keyframes gradient {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        .stat-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            transition: all 0.3s;
-        }
-        .stat-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(96, 165, 250, 0.3);
-        }
-    </style>
-</head>
-<body>
-    <div class="animated-bg">
-        <!-- Navigation -->
-        <nav class="glass sticky top-0 z-50 px-4 py-3">
-            <div class="max-w-6xl mx-auto flex justify-between items-center">
-                <div class="flex items-center space-x-2">
-                    <span class="text-2xl">👑</span>
-                    <span class="text-xl font-bold text-white"><%= lang === 'sw' ? 'Admin Panel' : 'Admin Panel' %></span>
-                </div>
-                <div class="flex items-center space-x-4">
-    <!-- Language Toggle -->
-    <a href="/toggle-language" class="text-white/80 hover:text-white transition text-sm">
-        <%= lang === 'sw' ? 'English' : '🇹🇿 Kiswahili' %>
-    </a>
-    <a href="/admin-logout" class="px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-full text-red-300 text-sm font-semibold hover:bg-red-500/30 transition">
-        <%= lang === 'sw' ? 'Toka' : 'Logout' %>
-    </a>
-</div>
-            </div>
-        </nav>
+<%- include('partials/header') %>
 
-        <div class="max-w-6xl mx-auto px-4 py-8">
-            <!-- Stats -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div class="stat-card rounded-2xl p-6 text-center">
-                    <div class="text-3xl font-bold text-blue-400"><%= totalUsers %></div>
-                    <div class="text-sm text-gray-400"><%= lang === 'sw' ? 'Watumiaji' : 'Users' %></div>
-                </div>
-                <div class="stat-card rounded-2xl p-6 text-center">
-                    <div class="text-3xl font-bold text-green-400"><%= totalSales %></div>
-                    <div class="text-sm text-gray-400"><%= lang === 'sw' ? 'Manunuzi' : 'Sales' %></div>
-                </div>
-                <div class="stat-card rounded-2xl p-6 text-center">
-                    <div class="text-3xl font-bold text-purple-400">TZS <%= totalRevenue.toLocaleString() %></div>
-                    <div class="text-sm text-gray-400"><%= lang === 'sw' ? 'Mapato' : 'Revenue' %></div>
-                </div>
-                <div class="stat-card rounded-2xl p-6 text-center">
-                    <div class="text-3xl font-bold text-yellow-400"><%= transactions.length %></div>
-                    <div class="text-sm text-gray-400"><%= lang === 'sw' ? 'Jumla ya Manunuzi' : 'Total Transactions' %></div>
-                </div>
-            </div>
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-white">👑 <%= lang === 'sw' ? 'Admin Panel' : 'Admin Panel' %></h1>
+        <a href="/admin-logout" class="px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-full text-red-300 text-sm font-semibold hover:bg-red-500/30 transition">
+            <%= lang === 'sw' ? 'Toka' : 'Logout' %>
+        </a>
+    </div>
 
-            <!-- All Transactions -->
-            <div class="glass rounded-2xl p-6">
-                <h2 class="text-2xl font-bold text-white mb-4">
-                    📋 <%= lang === 'sw' ? 'Manunuzi Yote' : 'All Transactions' %>
-                </h2>
-                
-                <% if (transactions.length === 0) { %>
-                    <p class="text-gray-400 text-center py-8">
-                        <%= lang === 'sw' ? 'Hakuna manunuzi bado' : 'No transactions yet' %>
-                    </p>
-                <% } else { %>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="border-b border-white/10">
-                                <tr class="text-left text-gray-400">
-                                    <th class="pb-3 px-3"><%= lang === 'sw' ? 'ID' : 'ID' %></th>
-                                    <th class="pb-3 px-3"><%= lang === 'sw' ? 'Mtumiaji' : 'User' %></th>
-                                    <th class="pb-3 px-3"><%= lang === 'sw' ? 'Bundles' : 'Bundle' %></th>
-                                    <th class="pb-3 px-3"><%= lang === 'sw' ? 'Kiasi' : 'Amount' %></th>
-                                    <th class="pb-3 px-3"><%= lang === 'sw' ? 'Njia' : 'Method' %></th>
-                                    <th class="pb-3 px-3"><%= lang === 'sw' ? 'Hali' : 'Status' %></th>
-                                    <th class="pb-3 px-3"><%= lang === 'sw' ? 'Tarehe' : 'Date' %></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% transactions.forEach(function(t) { %>
-                                    <tr class="border-b border-white/5 hover:bg-white/5 transition">
-                                        <td class="py-3 px-3 text-white/60 text-xs"><%= t.id %></td>
-                                        <td class="py-3 px-3 text-white"><%= t.phone %></td>
-                                        <td class="py-3 px-3 text-white"><%= t.bundleName %></td>
-                                        <td class="py-3 px-3 text-green-400 font-semibold">TZS <%= t.amount.toLocaleString() %></td>
-                                        <td class="py-3 px-3 text-white/80"><%= t.paymentMethod %></td>
-                                        <td class="py-3 px-3">
-                                            <span class="px-2 py-1 rounded-full text-xs <%= t.status === 'completed' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300' %>">
-                                                <%= t.status === 'completed' ? '✅' : '⏳' %> <%= t.status %>
-                                            </span>
-                                        </td>
-                                        <td class="py-3 px-3 text-white/60 text-xs"><%= new Date(t.date).toLocaleString('en-TZ') %></td>
-                                    </tr>
-                                <% }); %>
-                            </tbody>
-                        </table>
-                    </div>
-                <% } %>
-            </div>
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="glass rounded-2xl p-6 text-center">
+            <div class="text-3xl font-bold text-blue-400"><%= totalUsers %></div>
+            <div class="text-sm text-gray-400"><%= lang === 'sw' ? 'Watumiaji' : 'Users' %></div>
+        </div>
+        <div class="glass rounded-2xl p-6 text-center">
+            <div class="text-3xl font-bold text-green-400"><%= totalSales %></div>
+            <div class="text-sm text-gray-400"><%= lang === 'sw' ? 'Manunuzi' : 'Sales' %></div>
+        </div>
+        <div class="glass rounded-2xl p-6 text-center">
+            <div class="text-3xl font-bold text-purple-400"><%= totalRevenue.toLocaleString() %></div>
+            <div class="text-sm text-gray-400">TZS <%= lang === 'sw' ? 'Mapato' : 'Revenue' %></div>
+        </div>
+        <div class="glass rounded-2xl p-6 text-center">
+            <div class="text-3xl font-bold text-yellow-400"><%= transactions.length %></div>
+            <div class="text-sm text-gray-400"><%= lang === 'sw' ? 'Manunuzi Yote' : 'Total' %></div>
         </div>
     </div>
-</body>
-</html>
+
+    <!-- Transactions -->
+    <div class="glass rounded-2xl p-6">
+        <h2 class="text-xl font-bold text-white mb-4">
+            📋 <%= lang === 'sw' ? 'Manunuzi Yote' : 'All Transactions' %>
+        </h2>
+        <% if (transactions.length === 0) { %>
+            <p class="text-gray-400 text-center py-8">
+                <%= lang === 'sw' ? 'Hakuna manunuzi bado' : 'No transactions yet' %>
+            </p>
+        <% } else { %>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="border-b border-white/10">
+                        <tr class="text-left text-gray-400">
+                            <th class="pb-3 px-2">ID</th>
+                            <th class="pb-3 px-2"><%= lang === 'sw' ? 'Mtumiaji' : 'User' %></th>
+                            <th class="pb-3 px-2">Bundle</th>
+                            <th class="pb-3 px-2"><%= lang === 'sw' ? 'Kiasi' : 'Amount' %></th>
+                            <th class="pb-3 px-2"><%= lang === 'sw' ? 'Njia' : 'Method' %></th>
+                            <th class="pb-3 px-2"><%= lang === 'sw' ? 'Hali' : 'Status' %></th>
+                            <th class="pb-3 px-2"><%= lang === 'sw' ? 'Tarehe' : 'Date' %></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% transactions.forEach(function(t) { %>
+                            <tr class="border-b border-white/5">
+                                <td class="py-3 px-2 text-white/60 text-xs"><%= t.id %></td>
+                                <td class="py-3 px-2 text-white"><%= t.phone %></td>
+                                <td class="py-3 px-2 text-white"><%= t.bundleName %></td>
+                                <td class="py-3 px-2 text-green-400 font-semibold">TZS <%= t.amount.toLocaleString() %></td>
+                                <td class="py-3 px-2 text-white/80"><%= t.paymentMethod %></td>
+                                <td class="py-3 px-2">
+                                    <span class="px-2 py-1 rounded-full text-xs <%= t.status === 'completed' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300' %>">
+                                        <%= t.status === 'completed' ? '✅' : '⏳' %>
+                                    </span>
+                                </td>
+                                <td class="py-3 px-2 text-white/60 text-xs"><%= new Date(t.date).toLocaleString('en-TZ') %></td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+<%- include('partials/footer') %>
