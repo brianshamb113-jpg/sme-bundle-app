@@ -1,55 +1,64 @@
 <%- include('partials/header') %>
-<div class="max-w-3xl mx-auto px-4 py-8">
 
-    <div class="glass rounded-2xl p-6 mb-6">
-        <h2 class="text-xl font-bold text-white mb-4">
-            <span class="text-blue-400">1.</span> 
+<div class="max-w-4xl mx-auto px-4 py-6">
+
+    <!-- STEP 1: Choose Network -->
+    <div class="glass rounded-2xl p-5 mb-5">
+        <h2 class="text-lg font-bold text-white mb-4">
+            <span class="text-blue-400">1.</span>
             <%= lang === 'sw' ? 'Chagua Mtandao Wako' : 'Choose Your Network' %>
         </h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="providerGrid">
             <% providers.forEach(function(provider) { %>
-                <div class="provider-card glass rounded-xl p-4 text-center cursor-pointer hover:bg-white/10 transition border-2 border-transparent" 
-                     data-provider="<%= provider.id %>" 
+                <div class="provider-card glass rounded-xl p-3 text-center cursor-pointer hover:bg-white/10 transition border-2 border-transparent"
+                     data-provider="<%= provider.id %>"
                      data-payment="<%= provider.paymentMethod %>"
                      data-name="<%= provider.name %>">
-                    <img src="<%= provider.logo %>" alt="<%= provider.name %>" class="h-12 mx-auto mb-2 object-contain">
+                    <img src="<%= provider.logo %>" alt="<%= provider.name %>" class="h-10 mx-auto mb-2 object-contain">
                     <div class="text-xs font-semibold text-white"><%= provider.name %></div>
                 </div>
             <% }); %>
         </div>
     </div>
 
-    <div class="glass rounded-2xl p-6 mb-6 hidden" id="plansSection">
-        <h2 class="text-xl font-bold text-white mb-4">
-            <span class="text-blue-400">2.</span> 
+    <!-- STEP 2: Choose Plan Type + Plan (hidden until network is chosen) -->
+    <div class="glass rounded-2xl p-5 mb-5 hidden" id="plansSection">
+        <h2 class="text-lg font-bold text-white mb-4">
+            <span class="text-blue-400">2.</span>
             <%= lang === 'sw' ? 'Chagua Bundle Yako' : 'Choose Your Bundle' %>
         </h2>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3" id="planGrid">
-            <% plans.forEach(function(plan) { %>
-                <div class="plan-card glass rounded-xl p-3 text-center cursor-pointer hover:bg-white/10 transition border-2 border-transparent"
-                     data-gb="<%= plan.gb %>"
-                     data-price="<%= plan.price %>">
-                    <div class="text-2xl font-bold text-blue-400"><%= plan.gb %>GB</div>
-                    <div class="text-sm font-bold text-white mt-1">TZS <%= plan.price.toLocaleString() %></div>
-                    <div class="text-xs text-gray-400 line-through">TZS <%= plan.originalPrice.toLocaleString() %></div>
-                    <div class="text-xs text-green-400 font-semibold mt-1">
-                        💚 <%= lang === 'sw' ? 'Okoa' : 'Save' %> <%= (plan.originalPrice - plan.price).toLocaleString() %>
-                    </div>
-                </div>
-            <% }); %>
+
+        <!-- Plan Type Tabs (shown only if network has both types) -->
+        <div class="flex gap-2 mb-4" id="planTypeTabs">
+            <button type="button" id="tabData" class="plan-tab flex-1 py-2 rounded-xl font-semibold text-sm transition">
+                📶 <%= lang === 'sw' ? 'Data Plan' : 'Data Plan' %>
+            </button>
+            <button type="button" id="tabCombo" class="plan-tab flex-1 py-2 rounded-xl font-semibold text-sm transition hidden">
+                🎁 <%= lang === 'sw' ? 'Combo Plan' : 'Combo Plan' %>
+            </button>
+        </div>
+
+        <!-- Plans Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" id="planGrid">
+            <!-- Populated by JavaScript -->
         </div>
     </div>
 
-    <div class="glass rounded-2xl p-6 hidden" id="confirmSection">
-        <h2 class="text-xl font-bold text-white mb-4">
-            <span class="text-blue-400">3.</span> 
+    <!-- STEP 3: Confirm Payment -->
+    <div class="glass rounded-2xl p-5 hidden" id="confirmSection">
+        <h2 class="text-lg font-bold text-white mb-4">
+            <span class="text-blue-400">3.</span>
             <%= lang === 'sw' ? 'Thibitisha Malipo' : 'Confirm Payment' %>
         </h2>
-        
+
         <div class="bg-white/5 rounded-xl p-4 mb-4">
             <div class="flex justify-between mb-2">
                 <span class="text-gray-400 text-sm"><%= lang === 'sw' ? 'Mtandao' : 'Network' %>:</span>
                 <span class="text-white font-semibold text-sm" id="summaryProvider">-</span>
+            </div>
+            <div class="flex justify-between mb-2">
+                <span class="text-gray-400 text-sm"><%= lang === 'sw' ? 'Aina' : 'Type' %>:</span>
+                <span class="text-white font-semibold text-sm" id="summaryType">-</span>
             </div>
             <div class="flex justify-between mb-2">
                 <span class="text-gray-400 text-sm"><%= lang === 'sw' ? 'Bundle' : 'Bundle' %>:</span>
@@ -69,6 +78,9 @@
 
         <form action="/process-payment" method="POST" id="paymentForm">
             <input type="hidden" name="planGb" id="inputPlanGb" value="">
+            <input type="hidden" name="planPrice" id="inputPlanPrice" value="">
+            <input type="hidden" name="planType" id="inputPlanType" value="">
+            <input type="hidden" name="planLabel" id="inputPlanLabel" value="">
             <input type="hidden" name="paymentMethod" id="inputPaymentMethod" value="">
             <input type="hidden" name="providerName" id="inputProviderName" value="">
 
@@ -80,11 +92,11 @@
                        class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
 
-            <button type="submit" id="payBtn" class="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 rounded-xl font-bold text-white hover:scale-105 transition duration-300 text-lg">
+            <button type="submit" id="payBtn" class="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 rounded-xl font-bold text-white hover:scale-105 transition text-lg">
                 ✅ <%= lang === 'sw' ? 'Thibitisha Malipo' : 'Confirm Payment' %>
             </button>
         </form>
-        
+
         <div class="text-center mt-4">
             <a href="/dashboard" class="text-sm text-gray-400 hover:text-white transition">
                 ← <%= lang === 'sw' ? 'Rudi' : 'Back' %>
@@ -97,11 +109,24 @@
     .provider-card.selected {
         border-color: #3b82f6 !important;
         background: rgba(59, 130, 246, 0.15) !important;
-        transform: scale(1.05);
+        transform: scale(1.03);
     }
     .plan-card.selected {
         border-color: #3b82f6 !important;
         background: rgba(59, 130, 246, 0.15) !important;
+    }
+    .plan-tab {
+        background: rgba(255,255,255,0.05);
+        border: 2px solid transparent;
+        color: #b9becf;
+    }
+    .plan-tab:hover {
+        background: rgba(255,255,255,0.1);
+    }
+    .plan-tab.active {
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        color: white;
+        border-color: rgba(255,255,255,0.2);
     }
 </style>
 
@@ -109,53 +134,140 @@
 document.addEventListener('DOMContentLoaded', function() {
     let selectedProvider = null;
     let selectedPlan = null;
+    let currentPlanType = 'data'; // 'data' or 'combo'
 
+    // ========== PROVIDER DATA (injected from server) ==========
+    //const NETWORK_PLANS = <%- JSON.stringify(networkPlans || {}) %>
+
+    // ========== PROVIDER SELECTION ==========
     document.querySelectorAll('.provider-card').forEach(card => {
         card.addEventListener('click', function() {
             document.querySelectorAll('.provider-card').forEach(c => c.classList.remove('selected'));
             this.classList.add('selected');
             selectedProvider = {
+                id: this.dataset.provider,
                 payment: this.dataset.payment,
                 name: this.dataset.name
             };
-            
-            document.getElementById('plansSection').classList.remove('hidden');
+
+            // Reset selected plan
+            selectedPlan = null;
             document.getElementById('confirmSection').classList.add('hidden');
-            document.querySelectorAll('.plan-card').forEach(p => p.classList.remove('selected'));
-            
-            document.getElementById('plansSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-    });
-
-    document.querySelectorAll('.plan-card').forEach(card => {
-        card.addEventListener('click', function() {
-            document.querySelectorAll('.plan-card').forEach(p => p.classList.remove('selected'));
-            this.classList.add('selected');
-            selectedPlan = {
-                gb: this.dataset.gb,
-                price: parseInt(this.dataset.price)
-            };
-
-            document.getElementById('summaryProvider').textContent = selectedProvider.name;
-            document.getElementById('summaryBundle').textContent = selectedPlan.gb + 'GB SME Bundle';
-            document.getElementById('summaryTotal').textContent = 'TZS ' + selectedPlan.price.toLocaleString();
-
-            document.getElementById('inputPlanGb').value = selectedPlan.gb;
+            document.getElementById('inputPlanGb').value = '';
+            document.getElementById('inputPlanPrice').value = '';
+            document.getElementById('inputPlanType').value = '';
+            document.getElementById('inputPlanLabel').value = '';
             document.getElementById('inputPaymentMethod').value = selectedProvider.payment;
             document.getElementById('inputProviderName').value = selectedProvider.name;
 
-            document.getElementById('confirmSection').classList.remove('hidden');
-            document.getElementById('confirmSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Show plans section
+            document.getElementById('plansSection').classList.remove('hidden');
+
+            // Determine if this network has combo plans
+            const networkData = NETWORK_PLANS[selectedProvider.id];
+            const hasCombo = networkData && networkData.comboPlans && networkData.comboPlans.length > 0;
+
+            const tabData = document.getElementById('tabData');
+            const tabCombo = document.getElementById('tabCombo');
+
+            if (hasCombo) {
+                tabCombo.classList.remove('hidden');
+            } else {
+                tabCombo.classList.add('hidden');
+            }
+
+            // Default to Data tab
+            currentPlanType = 'data';
+            renderPlans();
+
+            document.getElementById('plansSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     });
 
+    // ========== TAB SWITCHING ==========
+    document.getElementById('tabData').addEventListener('click', function() {
+        currentPlanType = 'data';
+        selectedPlan = null;
+        document.getElementById('confirmSection').classList.add('hidden');
+        renderPlans();
+    });
+
+    document.getElementById('tabCombo').addEventListener('click', function() {
+        currentPlanType = 'combo';
+        selectedPlan = null;
+        document.getElementById('confirmSection').classList.add('hidden');
+        renderPlans();
+    });
+
+    // ========== RENDER PLANS ==========
+    function renderPlans() {
+        if (!selectedProvider) return;
+
+        const networkData = NETWORK_PLANS[selectedProvider.id];
+        if (!networkData) return;
+
+        const plans = currentPlanType === 'combo' ? networkData.comboPlans : networkData.dataPlans;
+        const planGrid = document.getElementById('planGrid');
+        planGrid.innerHTML = '';
+
+        // Update tab styles
+        document.getElementById('tabData').classList.toggle('active', currentPlanType === 'data');
+        document.getElementById('tabCombo').classList.toggle('active', currentPlanType === 'combo');
+
+        if (!plans || plans.length === 0) {
+            planGrid.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">No plans available in this category</div>';
+            return;
+        }
+
+        plans.forEach(function(plan) {
+            const card = document.createElement('div');
+            card.className = 'plan-card glass rounded-xl p-3 text-center cursor-pointer hover:bg-white/10 transition border-2 border-transparent';
+            card.innerHTML = `
+                <div class="text-xl font-bold text-blue-400">${plan.gb}GB</div>
+                <div class="text-sm font-bold text-white mt-1">TZS ${plan.price.toLocaleString()}</div>
+                ${plan.extra ? `<div class="text-xs text-purple-300 mt-1">${plan.extra}</div>` : ''}
+                <div class="text-xs text-gray-400 mt-1">${plan.note || ''}</div>
+            `;
+
+            card.addEventListener('click', function() {
+                document.querySelectorAll('.plan-card').forEach(p => p.classList.remove('selected'));
+                this.classList.add('selected');
+
+                selectedPlan = {
+                    gb: plan.gb,
+                    price: plan.price,
+                    type: currentPlanType,
+                    label: plan.extra || `${plan.gb}GB ${currentPlanType === 'combo' ? 'Combo' : 'Data'}`
+                };
+
+                // Update summary
+                document.getElementById('summaryProvider').textContent = selectedProvider.name;
+                document.getElementById('summaryType').textContent = currentPlanType === 'combo' ? '🎁 Combo Plan' : '📶 Data Plan';
+                document.getElementById('summaryBundle').textContent = selectedPlan.label;
+                document.getElementById('summaryTotal').textContent = 'TZS ' + selectedPlan.price.toLocaleString();
+
+                // Set hidden inputs
+                document.getElementById('inputPlanGb').value = selectedPlan.gb;
+                document.getElementById('inputPlanPrice').value = selectedPlan.price;
+                document.getElementById('inputPlanType').value = currentPlanType;
+                document.getElementById('inputPlanLabel').value = selectedPlan.label;
+
+                // Show confirm
+                document.getElementById('confirmSection').classList.remove('hidden');
+                document.getElementById('confirmSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+
+            planGrid.appendChild(card);
+        });
+    }
+
+    // ========== PREVENT DOUBLE SUBMIT ==========
     document.getElementById('paymentForm').addEventListener('submit', function() {
         const btn = document.getElementById('payBtn');
         btn.disabled = true;
-        btn.textContent = 'Processing...';
+        btn.textContent = '⏳ Processing...';
     });
 });
 </script>
-
 
 <%- include('partials/footer') %>

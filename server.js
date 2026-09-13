@@ -1,4 +1,4 @@
-const { PLANS, PROVIDERS } = require('./config/plans');
+const { PLANS, PROVIDERS, NETWORK_PLANS } = require('./config/plans');
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
@@ -200,90 +200,102 @@ app.post('/buy', (req, res) => {
     if (!req.session.user) {
         return res.redirect('/login');
     }
-    
+
     const bundleId = parseInt(req.body.bundleId);
-    const bundle = PLANS.find((p, i) => (i + 1) === bundleId) || PLANS[0];
+    const plan = PLANS[bundleId - 1] || PLANS[0];
     const transactionId = uuidv4().substring(0, 8).toUpperCase();
-    
-    console.log('🔍 DEBUG - Buy Now clicked. PLANS:', PLANS.length, 'PROVIDERS:', PROVIDERS.length);
-    
+
     res.render('payment', {
         user: req.session.user,
         bundle: {
-            id: bundle.gb,
-            name: bundle.gb + 'GB SME Bundle',
-            price: bundle.price,
-            originalPrice: bundle.originalPrice,
-            data: bundle.gb + 'GB'
+            id: bundleId,
+            name: plan.gb + 'GB SME Bundle',
+            price: plan.price,
+            originalPrice: plan.originalPrice,
+            data: plan.gb + 'GB'
         },
-        plans: PLANS,
         providers: PROVIDERS,
+        networkPlans: NETWORK_PLANS,
         transactionId: transactionId,
         error: null,
         success: null
     });
-});  
+});
 // PROCESS PAYMENT
 app.post('/process-payment', async (req, res) => {
     if (!req.session.user) {
         return res.redirect('/login');
     }
-    
-    const { planGb, paymentMethod, phoneNumber, providerName } = req.body;
-    const selectedPlan = PLANS.find(p => p.gb === parseInt(planGb));
-    
-    if (!selectedPlan) {
+
+    const { planGb, planPrice, planType, planLabel, paymentMethod, phoneNumber, providerName } = req.body;
+
+    if (!planGb || !planPrice) {
         return res.redirect('/dashboard');
     }
-    
-    const bundle = {
-        id: selectedPlan.gb,
-        name: `${selectedPlan.gb}GB SME Bundle`,
-        price: selectedPlan.price,
-        originalPrice: selectedPlan.originalPrice,
-        data: `${selectedPlan.gb}GB`
-    };
-    
+
     const transactionId = uuidv4().substring(0, 8).toUpperCase();
-    
+
+    const bundle = {
+        id: parseInt(planGb),
+        name: planLabel || (planGb + 'GB Bundle'),
+        price: parseInt(planPrice),
+        originalPrice: parseInt(planPrice),
+        data: planGb + 'GB',
+        type: planType,
+        provider: providerName
+    };
+
+    if (!phoneNumber || phoneNumber.length < 10) {
+        return res.render('payment', {
+            user: req.session.user,
+            bundle: bundle,
+            providers: PROVIDERS,
+            networkPlans: NETWORK_PLANS,
+            transactionId: transactionId,
+            error: 'Please enter a valid phone number',
+            success: null
+        });
+    }
+
     try {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
         const confirmationCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-        
+
         const transaction = {
             id: transactionId,
             phone: req.session.user.phone,
             bundleName: bundle.name,
             amount: bundle.price,
             paymentMethod: paymentMethod,
-            provider: providerName || paymentMethod,
+            provider: providerName,
+            planType: planType,
             date: new Date(),
             status: 'completed',
             confirmationCode: confirmationCode,
             delivered: true
         };
         transactions.push(transaction);
-        
+
         const user = users.find(u => u.phone === req.session.user.phone);
         if (user) {
             user.totalPurchases += 1;
             user.lastPurchaseDate = new Date();
         }
-        
+
         res.render('payment-success', {
             user: req.session.user,
             bundle: bundle,
             transaction: transaction,
             phoneNumber: phoneNumber
         });
-        
+
     } catch (error) {
         console.error('Payment error:', error);
         res.render('payment', {
             user: req.session.user,
             bundle: bundle,
-            plans: PLANS,
             providers: PROVIDERS,
+            networkPlans: NETWORK_PLANS,
             transactionId: transactionId,
             error: 'Payment failed. Please try again.',
             success: null
