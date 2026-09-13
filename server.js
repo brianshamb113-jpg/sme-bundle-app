@@ -18,10 +18,16 @@ console.log('🔍 PROVIDERS loaded:', PROVIDERS ? PROVIDERS.length + ' providers
 app.set('view engine', 'ejs');
 
 // Middleware
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-app.use(express.static('public'));
-
+app.use((req, res, next) => {
+    if (!req.session.lang) {
+        req.session.lang = 'sw';
+    }
+    res.locals.lang = req.session.lang;
+    res.locals.plans = PLANS;
+    res.locals.providers = PROVIDERS;
+    res.locals.networkPlans = NETWORK_PLANS;   // ← ADD THIS
+    next();
+});
 // ========== SESSION SETUP ==========
 app.use(session({
     store: new FileStore({
