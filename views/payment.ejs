@@ -27,7 +27,10 @@
             <span class="text-blue-400">2.</span>
             <%= lang === 'sw' ? 'Chagua Bundle Yako' : 'Choose Your Bundle' %>
         </h2>
-
+<div class="flex gap-2 mb-4" id="planTypeTabs">
+    <button type="button" id="tabSmall" class="plan-tab active flex-1 py-2 rounded-xl font-semibold text-sm transition">
+        📱 <%= lang === 'sw' ? 'Mabando ya kawaida' : 'Normal Bundles' %>
+    </button>
         <div class="flex gap-2 mb-4" id="planTypeTabs">
             <button type="button" id="tabData" class="plan-tab active flex-1 py-2 rounded-xl font-semibold text-sm transition">
                 📶 Data Plan
@@ -138,6 +141,14 @@
 const NETWORK_PLANS = {
     yas: {
         name: 'Yas (Tigo)',
+        smallPlans: [
+            { gb: 1, price: 1200, note: '1GB Bundle' },
+            { gb: 2, price: 2400, note: '2GB Bundle' },
+            { gb: 3, price: 3600, note: '3GB Bundle' },
+            { gb: 4, price: 4800, note: '4GB Bundle' },
+            { gb: 5, price: 6000, note: '5GB Bundle' }
+           
+        ],
         dataPlans: [
             { gb: 15, price: 15000, note: 'Kila Mwezi' },
             { gb: 35, price: 30000, note: 'Kila Mwezi' },
@@ -151,6 +162,14 @@ const NETWORK_PLANS = {
     },
     vodacom: {
         name: 'Vodacom',
+        smallPlans: [
+            { gb: 1, price: 1200, note: '1GB Bundle' },
+            { gb: 2, price: 2400, note: '2GB Bundle' },
+            { gb: 3, price: 3600, note: '3GB Bundle' },
+            { gb: 4, price: 4800, note: '4GB Bundle' },
+            { gb: 5, price: 6000, note: '5GB Bundle' }
+           
+        ],
         dataPlans: [
             { gb: 10,  price: 15000,  note: 'Siku 30' },
             { gb: 15,  price: 20000,  note: 'Siku 30' },
@@ -172,8 +191,15 @@ const NETWORK_PLANS = {
     },
     halotel: {
         name: 'Halotel',
+        smallPlans: [
+            { gb: 1, price: 1200, note: '1GB Bundle' },
+            { gb: 2, price: 2400, note: '2GB Bundle' },
+            { gb: 3, price: 3600, note: '3GB Bundle' },
+            { gb: 4, price: 4800, note: '4GB Bundle' },
+            { gb: 5, price: 6000, note: '5GB Bundle' }
+           
+        ],
         dataPlans: [
-            { gb: 5,  price: 6000,  note: 'Internet Bundle' },
             { gb: 6,  price: 7000,  note: 'Internet Bundle' },
             { gb: 7,  price: 8000,  note: 'Internet Bundle' },
             { gb: 8,  price: 9000,  note: 'Internet Bundle' },
@@ -196,6 +222,14 @@ const NETWORK_PLANS = {
     },
     airtel: {
         name: 'Airtel',
+        smallPlans: [
+            { gb: 1, price: 1200, note: '1GB Bundle' },
+            { gb: 2, price: 2400, note: '2GB Bundle' },
+            { gb: 3, price: 3600, note: '3GB Bundle' },
+            { gb: 4, price: 4800, note: '4GB Bundle' },
+            { gb: 5, price: 6000, note: '5GB Bundle' }
+           
+        ],
         dataPlans: [
             { gb: 5,  price: 5000,  note: 'Data Bundle' },
             { gb: 10, price: 10000, note: 'Data Bundle' },
@@ -263,7 +297,7 @@ document.addEventListener('DOMContentLoaded', function() {
         renderPlans();
     });
 
-    // ========== RENDER PLANS ==========
+   // ========== RENDER PLANS ==========
     function renderPlans() {
         if (!selectedProvider) return;
 
@@ -273,10 +307,25 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const plans = currentPlanType === 'combo' ? networkData.comboPlans : networkData.dataPlans;
+        // Pick the right plans based on tab
+        let plans;
+        let typeLabel;
+        if (currentPlanType === 'small') {
+            plans = networkData.smallPlans || [];
+            typeLabel = '📱 Small Bundle';
+        } else if (currentPlanType === 'combo') {
+            plans = networkData.comboPlans || [];
+            typeLabel = '🎁 Combo Plan';
+        } else {
+            plans = networkData.dataPlans || [];
+            typeLabel = '📶 Data Plan';
+        }
+
         const planGrid = document.getElementById('planGrid');
         planGrid.innerHTML = '';
 
+        // Update tab styles
+        document.getElementById('tabSmall').classList.toggle('active', currentPlanType === 'small');
         document.getElementById('tabData').classList.toggle('active', currentPlanType === 'data');
         document.getElementById('tabCombo').classList.toggle('active', currentPlanType === 'combo');
 
@@ -303,11 +352,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     gb: plan.gb,
                     price: plan.price,
                     type: currentPlanType,
-                    label: plan.extra || `${plan.gb}GB ${currentPlanType === 'combo' ? 'Combo' : 'Data'}`
+                    label: plan.extra || `${plan.gb}GB ${typeLabel.replace(/[^a-zA-Z ]/g, '').trim()}`
                 };
 
                 document.getElementById('summaryProvider').textContent = selectedProvider.name;
-                document.getElementById('summaryType').textContent = currentPlanType === 'combo' ? '🎁 Combo Plan' : '📶 Data Plan';
+                document.getElementById('summaryType').textContent = typeLabel;
                 document.getElementById('summaryBundle').textContent = selectedPlan.label;
                 document.getElementById('summaryTotal').textContent = 'TZS ' + selectedPlan.price.toLocaleString();
 
