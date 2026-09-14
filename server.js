@@ -17,22 +17,16 @@ console.log('🔍 PROVIDERS loaded:', PROVIDERS ? PROVIDERS.length + ' providers
 // Set up view engine
 app.set('view engine', 'ejs');
 
-// Middleware
-app.use((req, res, next) => {
-    if (!req.session.lang) {
-        req.session.lang = 'sw';
-    }
-    res.locals.lang = req.session.lang;
-    res.locals.plans = PLANS;
-    res.locals.providers = PROVIDERS;
-    res.locals.networkPlans = NETWORK_PLANS;   // ← ADD THIS
-    next();
-});
-// ========== SESSION SETUP ==========
+// ========== MIDDLEWARE ==========
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(express.static('public'));
+
+// ========== SESSION SETUP (MUST COME FIRST!) ==========
 app.use(session({
     store: new FileStore({
-        path: './sessions', // Sessions will be saved in a 'sessions' folder
-        ttl: 24 * 60 * 60, // Session lives for 24 hours (in seconds)
+        path: './sessions',
+        ttl: 24 * 60 * 60,
         retries: 0
     }),
     secret: 'sme-bundle-secret-key-2026',
@@ -41,19 +35,18 @@ app.use(session({
     cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
 }));
 
-// ========== LANGUAGE MIDDLEWARE ==========
+// ========== LANGUAGE + GLOBAL DATA MIDDLEWARE ==========
+// (runs AFTER session — req.session is guaranteed to exist)
 app.use((req, res, next) => {
-    // If no language is set, default to Swahili
     if (!req.session.lang) {
         req.session.lang = 'sw';
     }
-    // Make language available in all views
     res.locals.lang = req.session.lang;
-    res.locals.plans = PLANS;          // <-- NEW: Available everywhere
-    res.locals.providers = PROVIDERS;  // <-- NEW: Available everywhere
+    res.locals.plans = PLANS;
+    res.locals.providers = PROVIDERS;
+    res.locals.networkPlans = NETWORK_PLANS;
     next();
 });
-
 // ========== LANGUAGE TOGGLE ROUTE (BULLETPROOF) ==========
 app.get('/toggle-language', (req, res) => {
     // Toggle language
