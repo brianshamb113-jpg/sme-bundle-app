@@ -69,7 +69,7 @@ const users = [];
 const transactions = [];
 const bundles = [
     { id: 1, name: '1GB SME Bundle', price: 1200, originalPrice: 2100, data: '1GB' },
-    { id: 2, name: '2GB SME Bundle', price: 2200, originalPrice: 4000, data: '2GB' },
+    { id: 2, name: '2GB SME Bundle', price: 2400, originalPrice: 4200, data: '2GB' },
     { id: 3, name: '5GB SME Bundle', price: 5000, originalPrice: 9000, data: '5GB' }
 ];
 
@@ -208,13 +208,13 @@ app.post('/buy', (req, res) => {
         user: req.session.user,
         bundle: {
             id: bundleId,
+            gb: plan.gb,
             name: plan.gb + 'GB SME Bundle',
             price: plan.price,
             originalPrice: plan.originalPrice,
             data: plan.gb + 'GB'
         },
         providers: PROVIDERS,
-        networkPlans: NETWORK_PLANS,
         transactionId: transactionId,
         error: null,
         success: null
