@@ -1,20 +1,56 @@
-const { PLANS, PROVIDERS, NETWORK_PLANS } = require('./config/plans');
+// ========== IMPORTS ==========
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const bodyParser = require('body-parser');
-const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
+const mongoose = require('mongoose');
+const FileStore = require('session-file-store')(session);
 const app = express();
 const port = process.env.PORT || 3000;
 const bundleService = require('./services/bundleService');
-const FileStore = require('session-file-store')(session)
+const { PLANS, PROVIDERS, NETWORK_PLANS } = require('./config/plans');
 
-// DEBUG - Remove these two lines later
-console.log('🔍 PLANS loaded:', PLANS ? PLANS.length + ' plans' : 'UNDEFINED!');
-console.log('🔍 PROVIDERS loaded:', PROVIDERS ? PROVIDERS.length + ' providers' : 'UNDEFINED!');
+// ========== MONGODB CONNECTION ==========
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/smebundles';
 
-// Set up view engine
+mongoose.connect(MONGODB_URI)
+    .then(() => {
+        console.log('✅ MongoDB connected successfully');
+    })
+    .catch(err => {
+        console.error('❌ MongoDB connection error:', err.message);
+        console.error('⚠️  App will still run but data will NOT persist!');
+    });
+
+// ========== DATABASE SCHEMAS ==========
+const userSchema = new mongoose.Schema({
+    fullname: { type: String, required: true },
+    phone: { type: String, required: true, unique: true, index: true },
+    password: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now },
+    totalPurchases: { type: Number, default: 0 },
+    lastPurchaseDate: { type: Date }
+});
+
+const transactionSchema = new mongoose.Schema({
+    id: { type: String, required: true, index: true },
+    phone: { type: String, required: true, index: true },
+    bundleName: { type: String, required: true },
+    amount: { type: Number, required: true },
+    paymentMethod: { type: String },
+    provider: { type: String },
+    planType: { type: String },
+    date: { type: Date, default: Date.now },
+    status: { type: String, default: 'completed' },
+    confirmationCode: { type: String },
+    delivered: { type: Boolean, default: false }
+});
+
+const User = mongoose.model('User', userSchema);
+const Transaction = mongoose.model('Transaction', transactionSchema);
+
+// ========== VIEW ENGINE ==========
 app.set('view engine', 'ejs');
 
 // ========== MIDDLEWARE ==========
@@ -22,21 +58,20 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// ========== SESSION SETUP (MUST COME FIRST!) ==========
+// ========== SESSION (MUST COME BEFORE LANGUAGE MIDDLEWARE) ==========
 app.use(session({
     store: new FileStore({
         path: './sessions',
         ttl: 24 * 60 * 60,
         retries: 0
     }),
-    secret: 'sme-bundle-secret-key-2026',
+    secret: process.env.SESSION_SECRET || 'sme-bundle-secret-key-2026',
     resave: false,
     saveUninitialized: true,
     cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
 }));
 
 // ========== LANGUAGE + GLOBAL DATA MIDDLEWARE ==========
-// (runs AFTER session — req.session is guaranteed to exist)
 app.use((req, res, next) => {
     if (!req.session.lang) {
         req.session.lang = 'sw';
@@ -47,31 +82,12 @@ app.use((req, res, next) => {
     res.locals.networkPlans = NETWORK_PLANS;
     next();
 });
-// ========== LANGUAGE TOGGLE ROUTE (BULLETPROOF) ==========
-app.get('/toggle-language', (req, res) => {
-    // Toggle language
-    req.session.lang = req.session.lang === 'sw' ? 'en' : 'sw';
-    res.locals.lang = req.session.lang;
-    
-    // If there's a referer, go back to it, otherwise go home
-    const referer = req.headers.referer || '/';
-    
-    // If referer is the toggle route itself (shouldn't happen), go home
-    if (referer.includes('/toggle-language')) {
-        return res.redirect('/');
-    }
-    
-    res.redirect(referer);
-});
 
-// ========== TEMPORARY IN-MEMORY DATABASE ==========
-const users = [];
-const transactions = [];
-const bundles = [
-    { id: 1, name: '1GB SME Bundle', price: 1200, originalPrice: 2100, data: '1GB' },
-    { id: 2, name: '2GB SME Bundle', price: 2400, originalPrice: 4200, data: '2GB' },
-    { id: 3, name: '5GB SME Bundle', price: 5000, originalPrice: 9000, data: '5GB' }
-];
+// ========== LANGUAGE TOGGLE ==========
+app.get('/toggle-language', (req, res) => {
+    req.session.lang = req.session.lang === 'sw' ? 'en' : 'sw';
+    res.json({ success: true, lang: req.session.lang });
+});
 
 // ========== ROUTES ==========
 
@@ -79,16 +95,13 @@ const bundles = [
 app.get('/', async (req, res) => {
     try {
         const bundles = await bundleService.getBundles();
-        res.render('index', { 
+        res.render('index', {
             bundles: bundles,
             user: req.session.user || null
         });
     } catch (error) {
         console.error('Error fetching bundles:', error);
-        res.render('index', { 
-            bundles: [],
-            user: req.session.user || null
-        });
+        res.render('index', { bundles: [], user: req.session.user || null });
     }
 });
 
@@ -98,27 +111,28 @@ app.get('/register', (req, res) => {
 });
 
 app.post('/register', async (req, res) => {
-    const { fullname, phone, password } = req.body;
-    
-    const existingUser = users.find(u => u.phone === phone);
-    if (existingUser) {
-        return res.render('register', { error: 'Phone number already registered!' });
+    try {
+        const { fullname, phone, password } = req.body;
+
+        const existingUser = await User.findOne({ phone: phone });
+        if (existingUser) {
+            return res.render('register', { error: 'Phone number already registered!' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = await User.create({
+            fullname,
+            phone,
+            password: hashedPassword,
+            totalPurchases: 0
+        });
+
+        req.session.user = { fullname: newUser.fullname, phone: newUser.phone };
+        res.redirect('/dashboard');
+    } catch (error) {
+        console.error('Register error:', error);
+        res.render('register', { error: 'Registration failed. Please try again.' });
     }
-    
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    users.push({
-        fullname,
-        phone,
-        password: hashedPassword,
-        createdAt: new Date(),
-        totalPurchases: 0,
-        weeklyPurchases: 0,
-        lastPurchaseDate: new Date()
-    });
-    
-    req.session.user = { fullname, phone };
-    res.redirect('/dashboard');
 });
 
 // LOGIN
@@ -127,74 +141,89 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-    const { phone, password } = req.body;
-    
-    const user = users.find(u => u.phone === phone);
-    if (!user) {
-        return res.render('login', { error: 'Phone number not found!' });
+    try {
+        const { phone, password } = req.body;
+
+        const user = await User.findOne({ phone: phone });
+        if (!user) {
+            return res.render('login', { error: 'Phone number not found!' });
+        }
+
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            return res.render('login', { error: 'Incorrect password!' });
+        }
+
+        req.session.user = { fullname: user.fullname, phone: user.phone };
+        res.redirect('/dashboard');
+    } catch (error) {
+        console.error('Login error:', error);
+        res.render('login', { error: 'Login failed. Please try again.' });
     }
-    
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-        return res.render('login', { error: 'Incorrect password!' });
-    }
-    
-    req.session.user = { fullname: user.fullname, phone: user.phone };
-    res.redirect('/dashboard');
 });
 
-// DASHBOARD (ONLY ONCE!)
-app.get('/dashboard', (req, res) => {
+// DASHBOARD
+app.get('/dashboard', async (req, res) => {
     if (!req.session.user) {
         return res.redirect('/login');
     }
-    
-    // Build bundles from PLANS
-    const allBundles = PLANS.map((plan, index) => ({
-        id: index + 1,
-        name: `${plan.gb}GB SME Bundle`,
-        price: plan.price,
-        originalPrice: plan.originalPrice,
-        data: `${plan.gb}GB`
-    }));
-    
-    const userTransactions = transactions.filter(t => t.phone === req.session.user.phone);
-    const user = users.find(u => u.phone === req.session.user.phone);
-    let bonusEligible = false;
-    let bonusMessage = '';
-    
-    if (user) {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        const weeklyPurchases = transactions.filter(t => 
-            t.phone === user.phone && 
-            new Date(t.date) > weekAgo &&
-            t.status === 'completed'
-        );
-        
-        if (weeklyPurchases.length >= 3) {
-            bonusEligible = true;
-            bonusMessage = req.session.lang === 'sw' ? 
-                `🎉 Umefanya manunuzi ${weeklyPurchases.length} wiki hii! Unastahili bonasi ya 2000 TZS!` :
-                `🎉 You've made ${weeklyPurchases.length} purchases this week! You qualify for a 2000 TZS bonus!`;
-        } else {
-            bonusMessage = req.session.lang === 'sw' ?
-                `💪 Fanya manunuzi ${3 - weeklyPurchases.length} zaidi wiki hii kupata bonasi ya 2000 TZS!` :
-                `💪 Make ${3 - weeklyPurchases.length} more purchase(s) this week to earn 2000 TZS bonus!`;
+
+    try {
+        const allBundles = PLANS.map((plan, index) => ({
+            id: index + 1,
+            name: plan.gb + 'GB SME Bundle',
+            price: plan.price,
+            originalPrice: plan.originalPrice,
+            data: plan.gb + 'GB'
+        }));
+
+        const userTransactions = await Transaction.find({ phone: req.session.user.phone }).sort({ date: -1 });
+        const user = await User.findOne({ phone: req.session.user.phone });
+
+        let bonusEligible = false;
+        let bonusMessage = '';
+
+        if (user) {
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const weeklyPurchases = await Transaction.countDocuments({
+                phone: user.phone,
+                date: { $gt: weekAgo },
+                status: 'completed'
+            });
+
+            if (weeklyPurchases >= 3) {
+                bonusEligible = true;
+                bonusMessage = req.session.lang === 'sw'
+                    ? '🎉 Umefanya manunuzi ' + weeklyPurchases + ' wiki hii! Unastahili bonasi ya 2000 TZS!'
+                    : '🎉 You\'ve made ' + weeklyPurchases + ' purchases this week! You qualify for a 2000 TZS bonus!';
+            } else {
+                bonusMessage = req.session.lang === 'sw'
+                    ? '💪 Fanya manunuzi ' + (3 - weeklyPurchases) + ' zaidi wiki hii kupata bonasi ya 2000 TZS!'
+                    : '💪 Make ' + (3 - weeklyPurchases) + ' more purchase(s) this week to earn 2000 TZS bonus!';
+            }
         }
+
+        res.render('dashboard', {
+            user: req.session.user,
+            bundles: allBundles,
+            transactions: userTransactions.slice(0, 10),
+            bonusEligible: bonusEligible,
+            bonusMessage: bonusMessage
+        });
+    } catch (error) {
+        console.error('Dashboard error:', error);
+        res.render('dashboard', {
+            user: req.session.user,
+            bundles: [],
+            transactions: [],
+            bonusEligible: false,
+            bonusMessage: ''
+        });
     }
-    
-    res.render('dashboard', { 
-        user: req.session.user,
-        bundles: allBundles,
-        transactions: userTransactions.slice(-10),
-        bonusEligible: bonusEligible,
-        bonusMessage: bonusMessage
-    });
 });
 
-// ========== PAYMENT ROUTES ==========
-// BUY BUNDLE - Show payment page
+// BUY BUNDLE
 app.post('/buy', (req, res) => {
     if (!req.session.user) {
         return res.redirect('/login');
@@ -220,6 +249,7 @@ app.post('/buy', (req, res) => {
         success: null
     });
 });
+
 // PROCESS PAYMENT
 app.post('/process-payment', async (req, res) => {
     if (!req.session.user) {
@@ -249,7 +279,6 @@ app.post('/process-payment', async (req, res) => {
             user: req.session.user,
             bundle: bundle,
             providers: PROVIDERS,
-            networkPlans: NETWORK_PLANS,
             transactionId: transactionId,
             error: 'Please enter a valid phone number',
             success: null
@@ -260,7 +289,7 @@ app.post('/process-payment', async (req, res) => {
         await new Promise(resolve => setTimeout(resolve, 1500));
         const confirmationCode = Math.random().toString(36).substring(2, 10).toUpperCase();
 
-        const transaction = {
+        const transaction = await Transaction.create({
             id: transactionId,
             phone: req.session.user.phone,
             bundleName: bundle.name,
@@ -268,18 +297,15 @@ app.post('/process-payment', async (req, res) => {
             paymentMethod: paymentMethod,
             provider: providerName,
             planType: planType,
-            date: new Date(),
             status: 'completed',
             confirmationCode: confirmationCode,
             delivered: true
-        };
-        transactions.push(transaction);
+        });
 
-        const user = users.find(u => u.phone === req.session.user.phone);
-        if (user) {
-            user.totalPurchases += 1;
-            user.lastPurchaseDate = new Date();
-        }
+        await User.updateOne(
+            { phone: req.session.user.phone },
+            { $inc: { totalPurchases: 1 }, $set: { lastPurchaseDate: new Date() } }
+        );
 
         res.render('payment-success', {
             user: req.session.user,
@@ -294,56 +320,158 @@ app.post('/process-payment', async (req, res) => {
             user: req.session.user,
             bundle: bundle,
             providers: PROVIDERS,
-            networkPlans: NETWORK_PLANS,
             transactionId: transactionId,
             error: 'Payment failed. Please try again.',
             success: null
         });
     }
 });
-// TRANSACTION HISTORY
-app.get('/transactions', (req, res) => {
+
+// TRANSACTIONS HISTORY
+app.get('/transactions', async (req, res) => {
     if (!req.session.user) {
         return res.redirect('/login');
     }
-    
-    const userTransactions = transactions.filter(t => t.phone === req.session.user.phone);
-    
-    res.render('transactions', {
-        user: req.session.user,
-        transactions: userTransactions.reverse()
-    });
+
+    try {
+        const userTransactions = await Transaction.find({ phone: req.session.user.phone }).sort({ date: -1 });
+        res.render('transactions', {
+            user: req.session.user,
+            transactions: userTransactions
+        });
+    } catch (error) {
+        console.error('Transactions error:', error);
+        res.render('transactions', {
+            user: req.session.user,
+            transactions: []
+        });
+    }
+});
+
+// ========== SETTINGS ==========
+app.get('/settings', async (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/login');
+    }
+
+    try {
+        const user = await User.findOne({ phone: req.session.user.phone });
+        if (!user) return res.redirect('/login');
+
+        const userTransactions = await Transaction.find({ phone: user.phone });
+        const totalSpent = userTransactions
+            .filter(t => t.status === 'completed')
+            .reduce((sum, t) => sum + t.amount, 0);
+
+        res.render('settings', {
+            user: req.session.user,
+            userDetails: user,
+            totalSpent: totalSpent,
+            totalPurchases: userTransactions.filter(t => t.status === 'completed').length,
+            memberSince: user.createdAt,
+            error: req.query.error || null,
+            success: req.query.success || null
+        });
+    } catch (error) {
+        console.error('Settings error:', error);
+        res.redirect('/dashboard');
+    }
+});
+
+app.post('/settings/profile', async (req, res) => {
+    if (!req.session.user) return res.redirect('/login');
+
+    try {
+        const { fullname } = req.body;
+
+        if (!fullname || fullname.trim().length < 3) {
+            return res.redirect('/settings?error=invalidname');
+        }
+
+        await User.updateOne(
+            { phone: req.session.user.phone },
+            { $set: { fullname: fullname.trim() } }
+        );
+
+        req.session.user.fullname = fullname.trim();
+        res.redirect('/settings?success=profile');
+    } catch (error) {
+        console.error('Profile update error:', error);
+        res.redirect('/settings?error=updatefail');
+    }
+});
+
+app.post('/settings/password', async (req, res) => {
+    if (!req.session.user) return res.redirect('/login');
+
+    try {
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+        const user = await User.findOne({ phone: req.session.user.phone });
+
+        if (!user) return res.redirect('/login');
+
+        const validPassword = await bcrypt.compare(currentPassword, user.password);
+        if (!validPassword) {
+            return res.redirect('/settings?error=wrongpassword');
+        }
+
+        if (!newPassword || newPassword.length < 6) {
+            return res.redirect('/settings?error=shortpassword');
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.redirect('/settings?error=mismatch');
+        }
+
+        user.password = await bcrypt.hash(newPassword, 10);
+        await user.save();
+
+        res.redirect('/settings?success=password');
+    } catch (error) {
+        console.error('Password change error:', error);
+        res.redirect('/settings?error=updatefail');
+    }
 });
 
 // ========== ADMIN PORTAL ==========
-const ADMIN_PASSWORD = 'admin123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Shamba@2026#Admin';
 
-app.get('/admin', (req, res) => {
+app.get('/admin', async (req, res) => {
     if (req.session.isAdmin) {
-        const allTransactions = transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-        const totalRevenue = allTransactions.reduce((sum, t) => sum + (t.status === 'completed' ? t.amount : 0), 0);
-        const totalUsers = users.length;
-        const totalSales = allTransactions.filter(t => t.status === 'completed').length;
-        
-        return res.render('admin', {
-            transactions: allTransactions,
-            totalRevenue: totalRevenue,
-            totalUsers: totalUsers,
-            totalSales: totalSales
-        });
+        try {
+            const allTransactions = await Transaction.find().sort({ date: -1 });
+            const totalRevenue = allTransactions
+                .filter(t => t.status === 'completed')
+                .reduce((sum, t) => sum + t.amount, 0);
+            const totalUsers = await User.countDocuments();
+            const totalSales = allTransactions.filter(t => t.status === 'completed').length;
+
+            return res.render('admin', {
+                transactions: allTransactions,
+                totalRevenue: totalRevenue,
+                totalUsers: totalUsers,
+                totalSales: totalSales
+            });
+        } catch (error) {
+            console.error('Admin error:', error);
+            return res.render('admin', {
+                transactions: [],
+                totalRevenue: 0,
+                totalUsers: 0,
+                totalSales: 0
+            });
+        }
     }
-    
     res.render('admin-login', { error: null });
 });
 
 app.post('/admin-login', (req, res) => {
     const { password } = req.body;
-    
     if (password === ADMIN_PASSWORD) {
         req.session.isAdmin = true;
         res.redirect('/admin');
     } else {
-        res.render('admin-login', { 
+        res.render('admin-login', {
             error: req.session.lang === 'sw' ? 'Nenosiri lisilo sahihi!' : 'Incorrect password!'
         });
     }
@@ -353,115 +481,26 @@ app.get('/admin-logout', (req, res) => {
     req.session.isAdmin = false;
     res.redirect('/');
 });
-// ========== SETTINGS ==========
-app.get('/settings', (req, res) => {
-    if (!req.session.user) {
-        return res.redirect('/login');
-    }
-    
-    const user = users.find(u => u.phone === req.session.user.phone);
-    if (!user) {
-        return res.redirect('/login');
-    }
-    
-    const userTransactions = transactions.filter(t => t.phone === user.phone);
-    const totalSpent = userTransactions
-        .filter(t => t.status === 'completed')
-        .reduce((sum, t) => sum + t.amount, 0);
-    
-    res.render('settings', {
-        user: req.session.user,
-        userDetails: user,
-        totalSpent: totalSpent,
-        totalPurchases: userTransactions.filter(t => t.status === 'completed').length,
-        memberSince: user.createdAt,
-        error: req.query.error || null,
-        success: req.query.success || null
-    });
-});
 
-// Update profile
-app.post('/settings/profile', (req, res) => {
-    if (!req.session.user) {
-        return res.redirect('/login');
-    }
-    
-    const { fullname } = req.body;
-    const user = users.find(u => u.phone === req.session.user.phone);
-    
-    if (!user) {
-        return res.redirect('/login');
-    }
-    
-    if (!fullname || fullname.trim().length < 3) {
-        return res.render('settings', {
-            user: req.session.user,
-            userDetails: user,
-            totalSpent: 0,
-            totalPurchases: 0,
-            memberSince: user.createdAt,
-            error: req.session.lang === 'sw' ? 'Jina si sahihi!' : 'Invalid name!',
-            success: null
-        });
-    }
-    
-    user.fullname = fullname.trim();
-    req.session.user.fullname = fullname.trim();
-    
-    res.redirect('/settings?success=profile');
-});
-
-// Change password
-app.post('/settings/password', async (req, res) => {
-    if (!req.session.user) {
-        return res.redirect('/login');
-    }
-    
-    const { currentPassword, newPassword, confirmPassword } = req.body;
-    const user = users.find(u => u.phone === req.session.user.phone);
-    
-    if (!user) {
-        return res.redirect('/login');
-    }
-    
-    // Verify current password
-    const validPassword = await bcrypt.compare(currentPassword, user.password);
-    if (!validPassword) {
-        return res.redirect('/settings?error=wrongpassword');
-    }
-    
-    // Validate new password
-    if (!newPassword || newPassword.length < 6) {
-        return res.redirect('/settings?error=shortpassword');
-    }
-    
-    if (newPassword !== confirmPassword) {
-        return res.redirect('/settings?error=mismatch');
-    }
-    
-    // Update password
-    user.password = await bcrypt.hash(newPassword, 10);
-    
-    res.redirect('/settings?success=password');
-});
 // LOGOUT
 app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/');
 });
 
-// ========== DEBUG ROUTE (for testing) ==========
+// DEBUG
 app.get('/debug-lang', (req, res) => {
     res.json({
         sessionLang: req.session.lang,
         localsLang: res.locals.lang,
+        mongoConnected: mongoose.connection.readyState === 1,
         user: req.session.user ? req.session.user.phone : 'not logged in'
     });
 });
 
 // ========== START SERVER ==========
 app.listen(port, () => {
-    console.log(`🚀 SME Bundle App running at http://localhost:${port}`);
-    console.log(`📱 Made in Tanzania! 🇹🇿`);
-    console.log(`💳 Payment system ready (simulation mode)`);
+    console.log('🚀 SME Bundle App running at http://localhost:' + port);
+    console.log('📱 Made in Tanzania! 🇹🇿');
+    console.log('💳 Payment system ready');
 });
