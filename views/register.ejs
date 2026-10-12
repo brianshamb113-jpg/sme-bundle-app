@@ -23,6 +23,7 @@
                 <label class="block text-white text-sm font-semibold mb-2">
                     <%= lang === 'sw' ? 'Jina Kamili' : 'Full Name' %>
                 </label>
+                <input type="hidden" name="refCode" id="refCode" value="<%= typeof refCode !== 'undefined' ? refCode : '' %>">
                 <input type="text" name="fullname" placeholder="<%= lang === 'sw' ? 'Jina lako' : 'Your name' %>" required
                        class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
@@ -59,5 +60,15 @@
         </div>
     </div>
 </div>
+<script>
+    // Auto-fill referral code from URL
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const refFromUrl = urlParams.get('ref');
+        if (refFromUrl) {
+            document.getElementById('refCode').value = refFromUrl;
+        }
+    });
+</script>
 
 <%- include('partials/footer') %>

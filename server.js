@@ -35,7 +35,13 @@ const userSchema = new mongoose.Schema({
     // Bonus tracking
     lastBonusDate: { type: Date, default: null },
     totalBonusGb: { type: Number, default: 0 },
-    bonusUnlockedAt: { type: Date, default: null }
+    bonusUnlockedAt: { type: Date, default: null },
+    // Referral system
+    referralCode: { type: String, unique: true, sparse: true, index: true },
+    referredBy: { type: String, default: null },
+    referralCount: { type: Number, default: 0 },
+    referralRewarded: { type: Boolean, default: false }, // has the referrer been rewarded for this user
+    referralRewards: { type: Number, default: 0 }        // total 100MB rewards earned
 });
 
 const transactionSchema = new mongoose.Schema({
@@ -61,6 +67,16 @@ const bonusLogSchema = new mongoose.Schema({
     autoSent: { type: Boolean, default: false },  // NEW
     date: { type: Date, default: Date.now }
 });
+
+const referralLogSchema = new mongoose.Schema({
+    referrerPhone: { type: String, required: true, index: true },
+    referrerName: { type: String },
+    newUserPhone: { type: String, required: true },
+    newUserName: { type: String },
+    rewardMb: { type: Number, default: 100 },
+    date: { type: Date, default: Date.now }
+});
+
 const announcementSchema = new mongoose.Schema({
     title: { type: String, required: true },
     message: { type: String, required: true },
@@ -73,6 +89,7 @@ const BonusLog = mongoose.model('BonusLog', bonusLogSchema);
 const User = mongoose.model('User', userSchema);
 const Transaction = mongoose.model('Transaction', transactionSchema);
 const Announcement = mongoose.model('Announcement', announcementSchema);
+const ReferralLog = mongoose.model('ReferralLog', referralLogSchema);
 
 // ========== BONUS HELPER FUNCTIONS ==========
 async function checkBonusUnlock(user) {
@@ -158,6 +175,16 @@ async function autoSendPendingBonuses() {
 // Run auto-send every hour
 setInterval(autoSendPendingBonuses, 60 * 60 * 1000);
 
+// ========== REFERRAL CODE GENERATOR ==========
+function generateReferralCode(fullname, phone) {
+    const namePart = fullname
+        .replace(/[^a-zA-Z]/g, '')
+        .substring(0, 3)
+        .toUpperCase() || 'SME';
+    const phonePart = phone.slice(-4);
+    return `${namePart}${phonePart}`;
+}
+
 // ========== VIEW ENGINE ==========
 app.set('view engine', 'ejs');
 
@@ -215,16 +242,42 @@ app.get('/', async (req, res) => {
 
 // REGISTER
 app.get('/register', (req, res) => {
-    res.render('register', { error: null });
+    res.render('register', { 
+        error: null, 
+        refCode: req.query.ref || '' 
+    });
 });
-
 app.post('/register', async (req, res) => {
     try {
-        const { fullname, phone, password } = req.body;
+        const { fullname, phone, password, refCode } = req.body;
 
         const existingUser = await User.findOne({ phone: phone });
         if (existingUser) {
-            return res.render('register', { error: 'Phone number already registered!' });
+            return res.render('register', { 
+    error: 'Phone number already registered!',
+    refCode: refCode || ''
+     });
+        }
+
+        // Generate unique referral code
+        let referralCode = generateReferralCode(fullname, phone);
+        let codeExists = await User.findOne({ referralCode });
+        let attempts = 0;
+        while (codeExists && attempts < 5) {
+            referralCode = generateReferralCode(fullname, phone) + Math.floor(Math.random() * 10);
+            codeExists = await User.findOne({ referralCode });
+            attempts++;
+        }
+
+        // Check if referred by someone
+        let referredBy = null;
+        let referrerName = null;
+        if (refCode && refCode.trim()) {
+            const referrer = await User.findOne({ referralCode: refCode.trim().toUpperCase() });
+            if (referrer && referrer.phone !== phone) {
+                referredBy = referrer.phone;
+                referrerName = referrer.fullname;
+            }
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -232,14 +285,24 @@ app.post('/register', async (req, res) => {
             fullname,
             phone,
             password: hashedPassword,
+            referralCode: referralCode,
+            referredBy: referredBy,
             totalPurchases: 0
         });
+
+        // Log the referral (but don't reward yet — only after first purchase)
+        if (referredBy) {
+            console.log(`🔗 ${fullname} (${phone}) was referred by ${referrerName} (${referredBy})`);
+        }
 
         req.session.user = { fullname: newUser.fullname, phone: newUser.phone };
         res.redirect('/dashboard');
     } catch (error) {
         console.error('Register error:', error);
-        res.render('register', { error: 'Registration failed. Please try again.' });
+        res.render('register', {
+    error: 'Registration failed. Please try again.',
+    refCode: refCode || ''
+         });
     }
 });
 
@@ -298,12 +361,20 @@ app.get('/dashboard', async (req, res) => {
         const announcements = await Announcement.find({ active: true }).sort({ createdAt: -1 }).limit(5);
 
         res.render('dashboard', {
-            user: req.session.user,
-            bundles: allBundles,
-            transactions: userTransactions.slice(0, 10),
-            bonusStatus: bonusStatus,
-            announcements: announcements
-        });
+    user: req.session.user,
+    bundles: allBundles,
+    transactions: userTransactions.slice(0, 10),
+    bonusStatus: bonusStatus,
+    announcements: announcements,
+    referralStats: referralStats
+     });
+
+        // Get referral stats
+const referralStats = {
+    code: user ? user.referralCode : null,
+    count: user ? user.referralCount : 0,
+    rewards: user ? user.referralRewards : 0
+};
     } catch (error) {
         console.error('Dashboard error:', error);
         res.render('dashboard', {
@@ -395,11 +466,41 @@ app.post('/process-payment', async (req, res) => {
             delivered: true
         });
 
-        await User.updateOne(
+            await User.updateOne(
             { phone: req.session.user.phone },
             { $inc: { totalPurchases: 1 }, $set: { lastPurchaseDate: new Date() } }
+         );
+         // ========== REFERRAL REWARD LOGIC ==========
+// If this user was referred and hasn't triggered a reward yet
+const purchaser = await User.findOne({ phone: req.session.user.phone });
+
+if (purchaser && purchaser.referredBy && !purchaser.referralRewarded) {
+    const referrer = await User.findOne({ phone: purchaser.referredBy });
+    if (referrer) {
+        // Reward BOTH users with 100MB
+        await ReferralLog.create({
+            referrerPhone: referrer.phone,
+            referrerName: referrer.fullname,
+            newUserPhone: purchaser.phone,
+            newUserName: purchaser.fullname,
+            rewardMb: 100
+        });
+
+        await User.updateOne(
+            { phone: referrer.phone },
+            { $inc: { referralCount: 1, referralRewards: 1 } }
         );
 
+        await User.updateOne(
+            { phone: purchaser.phone },
+            { $set: { referralRewarded: true } }
+        );
+
+        console.log(`🎁 Referral reward: 100MB to ${referrer.fullname} and ${purchaser.fullname}`);
+        
+        // TODO: Trigger SIM automation to send 100MB to both
+    }
+}
         res.render('payment-success', {
             user: req.session.user,
             bundle: bundle,
@@ -746,6 +847,38 @@ app.post('/admin/announcements/delete/:id', async (req, res) => {
     } catch (error) {
         console.error('Delete error:', error);
         res.redirect('/admin/announcements?error=DeleteFailed');
+    }
+});
+
+ //=============ADMIN REFERRALS===============//
+app.get('/admin/referrals', async (req, res) => {
+    if (!req.session.isAdmin) {
+        return res.redirect('/admin');
+    }
+
+    try {
+        const topReferrers = await User.find({ referralCount: { $gt: 0 } })
+            .sort({ referralCount: -1 })
+            .limit(20);
+        
+        const recentReferrals = await ReferralLog.find()
+            .sort({ date: -1 })
+            .limit(50);
+
+        const totalReferrals = await ReferralLog.countDocuments();
+
+        res.render('admin-referrals', {
+            topReferrers: topReferrers,
+            recentReferrals: recentReferrals,
+            totalReferrals: totalReferrals
+        });
+    } catch (error) {
+        console.error('Admin referrals error:', error);
+        res.render('admin-referrals', {
+            topReferrers: [],
+            recentReferrals: [],
+            totalReferrals: 0
+        });
     }
 });
 // LOGOUT

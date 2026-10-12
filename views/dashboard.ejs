@@ -65,6 +65,60 @@
             <div class="text-xs font-semibold text-white"><%= lang === 'sw' ? 'Historia' : 'History' %></div>
         </a>
     </div>
+    
+    <!-- Referral Card -->
+<% if (typeof referralStats !== 'undefined' && referralStats.code) { %>
+    <div class="glass rounded-2xl p-6 mb-6 border-2 border-purple-500/30">
+        <div class="flex items-start gap-4 flex-wrap">
+            <div class="text-4xl">🎁</div>
+            <div class="flex-1 min-w-[250px]">
+                <h3 class="text-lg font-bold text-white">
+                    <%= lang === 'sw' ? 'Alika Marafiki, Pata 100MB' : 'Invite Friends, Earn 100MB' %>
+                </h3>
+                <p class="text-gray-400 text-sm mt-1">
+                    <%= lang === 'sw' 
+                        ? 'Ukialika mtu na akinunua bundle, wote wawili mtapata 100MB bure!' 
+                        : 'Invite someone and when they buy a bundle, BOTH of you get 100MB free!' %>
+                </p>
+
+                <div class="flex items-center gap-3 mt-4 flex-wrap">
+                    <div class="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
+                        <span class="text-xs text-gray-400"><%= lang === 'sw' ? 'Kodi yako:' : 'Your code:' %></span>
+                        <span class="font-mono font-bold text-purple-300" id="referralCode"><%= referralStats.code %></span>
+                    </div>
+                    <button onclick="copyReferralCode()" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl text-white text-sm font-semibold hover:scale-105 transition">
+                        📋 <%= lang === 'sw' ? 'Nakili' : 'Copy' %>
+                    </button>
+                    <a href="https://wa.me/?text=<%= encodeURIComponent((lang === 'sw' ? 'Jiunge na SME Bundles TZ na ununue bundles kwa punguzo! Tumia kodi yangu ' : 'Join SME Bundles TZ and buy bundles at a discount! Use my code ') + referralStats.code + ' - https://sme-bundle-app.onrender.com/register?ref=' + referralStats.code) %>" 
+                       target="_blank"
+                       class="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 rounded-xl text-white text-sm font-semibold hover:scale-105 transition">
+                        📱 <%= lang === 'sw' ? 'Shiriki WhatsApp' : 'Share on WhatsApp' %>
+                    </a>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mt-4">
+                    <div class="bg-white/5 rounded-xl p-3 text-center">
+                        <div class="text-2xl font-bold text-blue-400"><%= referralStats.count %></div>
+                        <div class="text-xs text-gray-400"><%= lang === 'sw' ? 'Walioalikwa' : 'Friends Invited' %></div>
+                    </div>
+                    <div class="bg-white/5 rounded-xl p-3 text-center">
+                        <div class="text-2xl font-bold text-green-400"><%= referralStats.rewards * 100 %>MB</div>
+                        <div class="text-xs text-gray-400"><%= lang === 'sw' ? 'MB Uliyopata' : 'MB Earned' %></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function copyReferralCode() {
+        const code = document.getElementById('referralCode').textContent;
+        navigator.clipboard.writeText(code).then(function() {
+            alert('<%= lang === "sw" ? "Kodi imenakiliwa!" : "Code copied!" %>');
+        });
+    }
+    </script>
+<% } %>
 
     <!-- Bundles -->
     <h2 class="text-2xl font-bold text-white mb-6">
