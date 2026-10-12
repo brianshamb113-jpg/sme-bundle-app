@@ -16,17 +16,43 @@
                 <div class="text-sm text-gray-400"><%= lang === 'sw' ? 'Simu' : 'Phone' %></div>
                 <div class="text-white font-semibold"><%= user.phone %></div>
             </div>
-        </div>
-        <% if (bonusEligible) { %>
-            <div class="mt-4 bg-green-500/20 border border-green-500/30 text-green-300 p-4 rounded-xl">
-                <strong>🎉 <%= bonusMessage %></strong>
-            </div>
-        <% } else { %>
-            <div class="mt-4 bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 p-4 rounded-xl">
-                <strong>💪 <%= bonusMessage %></strong>
-            </div>
-        <% } %>
+        </div>    
     </div>
+    <!-- Announcements -->
+<% if (typeof announcements !== 'undefined' && announcements.length > 0) { %>
+    <% announcements.forEach(function(a) { %>
+        <div class="glass rounded-2xl p-5 mb-4 border-l-4 <%= a.type === 'success' ? 'border-green-500' : a.type === 'warning' ? 'border-yellow-500' : 'border-blue-500' %>">
+            <div class="flex items-start gap-3">
+                <span class="text-2xl">
+                    <%= a.type === 'success' ? '✅' : a.type === 'warning' ? '⚠️' : '📢' %>
+                </span>
+                <div class="flex-1">
+                    <div class="font-bold text-white"><%= a.title %></div>
+                    <p class="text-gray-300 text-sm mt-1"><%= a.message %></p>
+                </div>
+            </div>
+        </div>
+    <% }); %>
+<% } %>
+<!-- Bonus Unlock Notification -->
+<% if (typeof bonusStatus !== 'undefined' && bonusStatus.unlocked && !bonusStatus.alreadySent) { %>
+    <div class="glass rounded-2xl p-5 mb-6 border-2 border-yellow-500/50 bg-gradient-to-r from-yellow-500/10 to-orange-500/10">
+        <div class="flex items-start gap-3">
+            <span class="text-3xl">🎁</span>
+            <div class="flex-1">
+                <div class="font-bold text-yellow-300 text-lg">
+                    <%= lang === 'sw' ? 'Hongera! Bonasi Yako Imefunguliwa!' : 'Congratulations! Your Bonus is Unlocked!' %>
+                </div>
+                <p class="text-gray-200 text-sm mt-2">
+                    <%= lang === 'sw' 
+                        ? 'Umefanya manunuzi ' + bonusStatus.count + ' wiki hii! Utapokea bonasi ya 2GB hivi karibuni. Admin atatuma bundle yako ndani ya saa 24.'
+                        : 'You made ' + bonusStatus.count + ' purchases this week! You\'ll receive a 2GB bonus soon. Admin will send your bundle within 24 hours.'
+                    %>
+                </p>
+            </div>
+        </div>
+    </div>
+<% } %>
 
     <!-- Quick Actions -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

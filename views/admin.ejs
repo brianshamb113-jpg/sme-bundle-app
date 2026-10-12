@@ -27,6 +27,34 @@
             <div class="text-sm text-gray-400"><%= lang === 'sw' ? 'Manunuzi Yote' : 'Total' %></div>
         </div>
     </div>
+    <!-- Bonus Management Link -->
+<div class="glass rounded-2xl p-5 mb-6">
+    <div class="flex justify-between items-center flex-wrap gap-3">
+        <div>
+            <h2 class="text-lg font-bold text-white">🎁 Bonus Management</h2>
+            <p class="text-sm text-gray-400 mt-1">
+                <%= lang === 'sw' ? 'Simamia bonasi za wateja waaminifu' : 'Manage customer loyalty bonuses' %>
+            </p>
+        </div>
+        <a href="/admin/bonuses" class="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-xl font-semibold text-white hover:scale-105 transition">
+            <%= lang === 'sw' ? 'Fungua Bonus' : 'Open Bonuses' %> →
+        </a>
+    </div>
+</div>
+<!-- Announcements Link -->
+<div class="glass rounded-2xl p-5 mb-6">
+    <div class="flex justify-between items-center flex-wrap gap-3">
+        <div>
+            <h2 class="text-lg font-bold text-white">📢 <%= lang === 'sw' ? 'Matangazo' : 'Announcements' %></h2>
+            <p class="text-sm text-gray-400 mt-1">
+                <%= lang === 'sw' ? 'Tuma matangazo kwa watumiaji wote' : 'Publish messages visible to all users' %>
+            </p>
+        </div>
+        <a href="/admin/announcements" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl font-semibold text-white hover:scale-105 transition">
+            <%= lang === 'sw' ? 'Fungua' : 'Open' %> →
+        </a>
+    </div>
+</div>
 
     <!-- Transactions -->
     <div class="glass rounded-2xl p-6">

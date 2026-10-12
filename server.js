@@ -1,4 +1,5 @@
 // ========== IMPORTS ==========
+require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
@@ -30,7 +31,11 @@ const userSchema = new mongoose.Schema({
     password: { type: String, required: true },
     createdAt: { type: Date, default: Date.now },
     totalPurchases: { type: Number, default: 0 },
-    lastPurchaseDate: { type: Date }
+    lastPurchaseDate: { type: Date },
+    // Bonus tracking
+    lastBonusDate: { type: Date, default: null },
+    totalBonusGb: { type: Number, default: 0 },
+    bonusUnlockedAt: { type: Date, default: null }
 });
 
 const transactionSchema = new mongoose.Schema({
@@ -46,9 +51,112 @@ const transactionSchema = new mongoose.Schema({
     confirmationCode: { type: String },
     delivered: { type: Boolean, default: false }
 });
+const bonusLogSchema = new mongoose.Schema({
+    phone: { type: String, required: true, index: true },
+    fullname: { type: String },
+    bundleName: { type: String, required: true },
+    bundleGb: { type: Number, required: true },
+    reason: { type: String, default: 'weekly_loyalty' },
+    sentBy: { type: String, default: 'admin' },  // 'admin' or 'system'
+    autoSent: { type: Boolean, default: false },  // NEW
+    date: { type: Date, default: Date.now }
+});
+const announcementSchema = new mongoose.Schema({
+    title: { type: String, required: true },
+    message: { type: String, required: true },
+    type: { type: String, default: 'info' }, // info, success, warning
+    active: { type: Boolean, default: true },
+    createdAt: { type: Date, default: Date.now }
+});    
 
+const BonusLog = mongoose.model('BonusLog', bonusLogSchema);
 const User = mongoose.model('User', userSchema);
 const Transaction = mongoose.model('Transaction', transactionSchema);
+const Announcement = mongoose.model('Announcement', announcementSchema);
+
+// ========== BONUS HELPER FUNCTIONS ==========
+async function checkBonusUnlock(user) {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    const count = await Transaction.countDocuments({
+        phone: user.phone,
+        date: { $gt: weekAgo },
+        status: 'completed'
+    });
+
+    if (count < 5) return { unlocked: false, count: count };
+
+    // Check if user already got bonus in last 7 days
+    const recentBonus = await BonusLog.findOne({
+        phone: user.phone,
+        date: { $gt: weekAgo }
+    });
+
+    if (recentBonus) return { unlocked: false, count: count, alreadySent: true };
+
+    // Eligible but not sent — unlock if not already unlocked
+    if (!user.bonusUnlockedAt) {
+        const now = new Date();
+        await User.updateOne(
+            { phone: user.phone },
+            { $set: { bonusUnlockedAt: now } }
+        );
+        return { unlocked: true, unlockedAt: now, count: count };
+    }
+
+    return { unlocked: true, unlockedAt: user.bonusUnlockedAt, count: count };
+}
+
+// Auto-send bonuses older than 24 hours
+async function autoSendPendingBonuses() {
+    try {
+        const twentyFourHoursAgo = new Date();
+        twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
+        const pendingUsers = await User.find({
+            bonusUnlockedAt: { $lt: twentyFourHoursAgo, $ne: null }
+        });
+
+        for (const user of pendingUsers) {
+            // Double-check no bonus was sent since unlock
+            const recentBonus = await BonusLog.findOne({
+                phone: user.phone,
+                date: { $gt: user.bonusUnlockedAt }
+            });
+
+            if (!recentBonus) {
+                await BonusLog.create({
+                    phone: user.phone,
+                    fullname: user.fullname,
+                    bundleName: '2GB Loyalty Bonus (Auto)',
+                    bundleGb: 2,
+                    reason: 'auto_send_after_24h',
+                    sentBy: 'system',
+                    autoSent: true
+                });
+
+                await User.updateOne(
+                    { phone: user.phone },
+                    {
+                        $set: {
+                            lastBonusDate: new Date(),
+                            bonusUnlockedAt: null
+                        },
+                        $inc: { totalBonusGb: 2 }
+                    }
+                );
+
+                console.log(`🤖 Auto-sent 2GB bonus to ${user.phone} (${user.fullname})`);
+            }
+        }
+    } catch (error) {
+        console.error('Auto-send bonus error:', error);
+    }
+}
+
+// Run auto-send every hour
+setInterval(autoSendPendingBonuses, 60 * 60 * 1000);
 
 // ========== VIEW ENGINE ==========
 app.set('view engine', 'ejs');
@@ -180,36 +288,21 @@ app.get('/dashboard', async (req, res) => {
         const userTransactions = await Transaction.find({ phone: req.session.user.phone }).sort({ date: -1 });
         const user = await User.findOne({ phone: req.session.user.phone });
 
-        let bonusEligible = false;
-        let bonusMessage = '';
-
+        // Check bonus unlock
+        let bonusStatus = { unlocked: false };
         if (user) {
-            const weekAgo = new Date();
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            const weeklyPurchases = await Transaction.countDocuments({
-                phone: user.phone,
-                date: { $gt: weekAgo },
-                status: 'completed'
-            });
-
-            if (weeklyPurchases >= 3) {
-                bonusEligible = true;
-                bonusMessage = req.session.lang === 'sw'
-                    ? '🎉 Umefanya manunuzi ' + weeklyPurchases + ' wiki hii! Unastahili bonasi ya 2000 TZS!'
-                    : '🎉 You\'ve made ' + weeklyPurchases + ' purchases this week! You qualify for a 2000 TZS bonus!';
-            } else {
-                bonusMessage = req.session.lang === 'sw'
-                    ? '💪 Fanya manunuzi ' + (3 - weeklyPurchases) + ' zaidi wiki hii kupata bonasi ya 2000 TZS!'
-                    : '💪 Make ' + (3 - weeklyPurchases) + ' more purchase(s) this week to earn 2000 TZS bonus!';
-            }
+            bonusStatus = await checkBonusUnlock(user);
         }
+
+        // Get active announcements
+        const announcements = await Announcement.find({ active: true }).sort({ createdAt: -1 }).limit(5);
 
         res.render('dashboard', {
             user: req.session.user,
             bundles: allBundles,
             transactions: userTransactions.slice(0, 10),
-            bonusEligible: bonusEligible,
-            bonusMessage: bonusMessage
+            bonusStatus: bonusStatus,
+            announcements: announcements
         });
     } catch (error) {
         console.error('Dashboard error:', error);
@@ -217,8 +310,8 @@ app.get('/dashboard', async (req, res) => {
             user: req.session.user,
             bundles: [],
             transactions: [],
-            bonusEligible: false,
-            bonusMessage: ''
+            bonusStatus: { unlocked: false },
+            announcements: []
         });
     }
 });
@@ -481,7 +574,180 @@ app.get('/admin-logout', (req, res) => {
     req.session.isAdmin = false;
     res.redirect('/');
 });
+// ========== ADMIN BONUS MANAGEMENT ==========
+app.get('/admin/bonuses', async (req, res) => {
+    if (!req.session.isAdmin) {
+        return res.redirect('/admin');
+    }
 
+    try {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+
+        // 1. Get users with 5+ completed transactions this week
+        const weeklyStats = await Transaction.aggregate([
+            { $match: { date: { $gt: weekAgo }, status: 'completed' } },
+            { $group: { _id: '$phone', count: { $sum: 1 }, totalSpent: { $sum: '$amount' } } },
+            { $match: { count: { $gte: 5 } } },
+            { $sort: { count: -1 } }
+        ]);
+
+        // 2. Get phones of users who already got bonus this week
+        const recentBonuses = await BonusLog.find({ date: { $gt: weekAgo } }).select('phone');
+        const alreadyGot = new Set(recentBonuses.map(b => b.phone));
+
+        // 3. Get user details for eligible ones
+        const eligiblePhones = weeklyStats.filter(s => !alreadyGot.has(s._id)).map(s => s._id);
+        const users = await User.find({ phone: { $in: eligiblePhones } });
+
+        const eligible = weeklyStats
+            .filter(s => !alreadyGot.has(s._id))
+            .map(s => {
+                const u = users.find(x => x.phone === s._id);
+                return {
+                    phone: s._id,
+                    fullname: u ? u.fullname : 'Unknown',
+                    transactionCount: s.count,
+                    totalSpent: s.totalSpent,
+                    lastBonusDate: u ? u.lastBonusDate : null
+                };
+            });
+
+        // 4. Get recent bonus history
+        const bonusHistory = await BonusLog.find().sort({ date: -1 }).limit(50);
+
+        res.render('admin-bonuses', {
+            eligible: eligible,
+            bonusHistory: bonusHistory,
+            success: req.query.success || null,
+            error: req.query.error || null
+        });
+    } catch (error) {
+        console.error('Admin bonus error:', error);
+        res.render('admin-bonuses', {
+            eligible: [],
+            bonusHistory: [],
+            success: null,
+            error: 'Failed to load bonus data'
+        });
+    }
+});
+
+// Send 2GB bonus
+app.post('/admin/send-bonus', async (req, res) => {
+    if (!req.session.isAdmin) {
+        return res.redirect('/admin');
+    }
+
+    try {
+        const { phone, fullname } = req.body;
+
+        const user = await User.findOne({ phone: phone });
+        if (!user) {
+            return res.redirect('/admin/bonuses?error=UserNotFound');
+        }
+
+        // Record bonus
+        await BonusLog.create({
+            phone: phone,
+            fullname: fullname || user.fullname,
+            bundleName: '2GB Loyalty Bonus',
+            bundleGb: 2,
+            reason: 'weekly_loyalty',
+            sentBy: 'admin'
+        });
+
+        // Update user record
+        await User.updateOne(
+            { phone: phone },
+            { $set: { lastBonusDate: new Date() }, $inc: { totalBonusGb: 2 } }
+        );
+
+        console.log(`🎁 Bonus 2GB sent to ${phone} (${fullname || user.fullname})`);
+
+        // TODO: Trigger SIM automation to actually send the bundle
+        // For now, this is just logged
+
+        res.redirect('/admin/bonuses?success=BonusSent');
+    } catch (error) {
+        console.error('Send bonus error:', error);
+        res.redirect('/admin/bonuses?error=SendFailed');
+    }
+});
+// ========== ADMIN ANNOUNCEMENTS ==========
+app.get('/admin/announcements', async (req, res) => {
+    if (!req.session.isAdmin) {
+        return res.redirect('/admin');
+    }
+
+    try {
+        const announcements = await Announcement.find().sort({ createdAt: -1 });
+        res.render('admin-announcements', {
+            announcements: announcements,
+            success: req.query.success || null,
+            error: req.query.error || null
+        });
+    } catch (error) {
+        console.error('Announcements error:', error);
+        res.render('admin-announcements', {
+            announcements: [],
+            success: null,
+            error: 'Failed to load announcements'
+        });
+    }
+});
+
+app.post('/admin/announcements/create', async (req, res) => {
+    if (!req.session.isAdmin) return res.redirect('/admin');
+
+    try {
+        const { title, message, type } = req.body;
+
+        if (!title || !message) {
+            return res.redirect('/admin/announcements?error=MissingFields');
+        }
+
+        await Announcement.create({
+            title: title.trim(),
+            message: message.trim(),
+            type: type || 'info',
+            active: true
+        });
+
+        res.redirect('/admin/announcements?success=Created');
+    } catch (error) {
+        console.error('Create announcement error:', error);
+        res.redirect('/admin/announcements?error=CreateFailed');
+    }
+});
+
+app.post('/admin/announcements/toggle/:id', async (req, res) => {
+    if (!req.session.isAdmin) return res.redirect('/admin');
+
+    try {
+        const announcement = await Announcement.findById(req.params.id);
+        if (announcement) {
+            announcement.active = !announcement.active;
+            await announcement.save();
+        }
+        res.redirect('/admin/announcements?success=Toggled');
+    } catch (error) {
+        console.error('Toggle error:', error);
+        res.redirect('/admin/announcements?error=ToggleFailed');
+    }
+});
+
+app.post('/admin/announcements/delete/:id', async (req, res) => {
+    if (!req.session.isAdmin) return res.redirect('/admin');
+
+    try {
+        await Announcement.findByIdAndDelete(req.params.id);
+        res.redirect('/admin/announcements?success=Deleted');
+    } catch (error) {
+        console.error('Delete error:', error);
+        res.redirect('/admin/announcements?error=DeleteFailed');
+    }
+});
 // LOGOUT
 app.get('/logout', (req, res) => {
     req.session.destroy();
