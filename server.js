@@ -85,11 +85,27 @@ const announcementSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });    
 
+const flashSaleSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    discountPercent: { type: Number, required: true, min: 1, max: 90 },
+    startTime: { type: Date, required: true },
+    endTime: { type: Date, required: true },
+    active: { type: Boolean, default: true },
+    // Optional: target only certain plans
+    targetBundleType: { type: String, default: 'all' }, // 'all', 'small', 'big', 'combo'
+    createdAt: { type: Date, default: Date.now },
+    // Track performance
+    transactionCount: { type: Number, default: 0 },
+    revenueGenerated: { type: Number, default: 0 }
+});
+
+
 const BonusLog = mongoose.model('BonusLog', bonusLogSchema);
 const User = mongoose.model('User', userSchema);
 const Transaction = mongoose.model('Transaction', transactionSchema);
 const Announcement = mongoose.model('Announcement', announcementSchema);
 const ReferralLog = mongoose.model('ReferralLog', referralLogSchema);
+const FlashSale = mongoose.model('FlashSale', flashSaleSchema);
 
 // ========== BONUS HELPER FUNCTIONS ==========
 async function checkBonusUnlock(user) {
@@ -124,7 +140,15 @@ async function checkBonusUnlock(user) {
 
     return { unlocked: true, unlockedAt: user.bonusUnlockedAt, count: count };
 }
-
+// Helper: get currently active flash sale
+async function getActiveFlashSale() {
+    const now = new Date();
+    return await FlashSale.findOne({
+        active: true,
+        startTime: { $lte: now },
+        endTime: { $gte: now }
+    });
+}
 // Auto-send bonuses older than 24 hours
 async function autoSendPendingBonuses() {
     try {
@@ -221,7 +245,9 @@ app.use((req, res, next) => {
 // ========== LANGUAGE TOGGLE ==========
 app.get('/toggle-language', (req, res) => {
     req.session.lang = req.session.lang === 'sw' ? 'en' : 'sw';
-    res.json({ success: true, lang: req.session.lang });
+    req.session.save(() => {
+        res.json({ success: true, lang: req.session.lang });
+    });
 });
 
 // ========== ROUTES ==========
@@ -296,7 +322,13 @@ app.post('/register', async (req, res) => {
         }
 
         req.session.user = { fullname: newUser.fullname, phone: newUser.phone };
-        res.redirect('/dashboard');
+        req.session.save((err) => {
+        if (err) {
+        console.error('Session save error:', err);
+        return res.render('register', { error: 'Session error. Please try again.', refCode: refCode || '' });
+    }
+    res.redirect('/dashboard');
+});
     } catch (error) {
         console.error('Register error:', error);
         res.render('register', {
@@ -326,7 +358,13 @@ app.post('/login', async (req, res) => {
         }
 
         req.session.user = { fullname: user.fullname, phone: user.phone };
-        res.redirect('/dashboard');
+req.session.save((err) => {
+    if (err) {
+        console.error('Session save error:', err);
+        return res.render('login', { error: 'Session error. Please try again.' });
+    }
+    res.redirect('/dashboard');
+});
     } catch (error) {
         console.error('Login error:', error);
         res.render('login', { error: 'Login failed. Please try again.' });
@@ -340,49 +378,86 @@ app.get('/dashboard', async (req, res) => {
     }
 
     try {
-        const allBundles = PLANS.map((plan, index) => ({
-            id: index + 1,
-            name: plan.gb + 'GB SME Bundle',
-            price: plan.price,
-            originalPrice: plan.originalPrice,
-            data: plan.gb + 'GB'
-        }));
+        // 1. Get flash sale FIRST (before using it)
+        const flashSale = await getActiveFlashSale();
 
+        // 2. Build bundles with flash sale discount applied
+        const allBundles = PLANS.map((plan, index) => {
+            let price = plan.price;
+            let isOnSale = false;
+
+            if (flashSale) {
+                price = Math.round(plan.price * (1 - flashSale.discountPercent / 100) / 50) * 50;
+                isOnSale = true;
+            }
+
+            return {
+                id: index + 1,
+                name: plan.gb + 'GB SME Bundle',
+                price: price,
+                originalPrice: plan.originalPrice,
+                data: plan.gb + 'GB',
+                isOnSale: isOnSale,
+                saleOriginalPrice: plan.price,
+                discountPercent: flashSale ? flashSale.discountPercent : 0
+            };
+        });
+
+        // 3. Get user transactions
         const userTransactions = await Transaction.find({ phone: req.session.user.phone }).sort({ date: -1 });
         const user = await User.findOne({ phone: req.session.user.phone });
 
-        // Check bonus unlock
+        // 4. Check bonus unlock
         let bonusStatus = { unlocked: false };
         if (user) {
             bonusStatus = await checkBonusUnlock(user);
         }
 
-        // Get active announcements
+        // 5. Get active announcements
         const announcements = await Announcement.find({ active: true }).sort({ createdAt: -1 }).limit(5);
 
-        res.render('dashboard', {
-    user: req.session.user,
-    bundles: allBundles,
-    transactions: userTransactions.slice(0, 10),
-    bonusStatus: bonusStatus,
-    announcements: announcements,
-    referralStats: referralStats
-     });
+        // 6. Get referral stats
+        const referralStats = {
+            code: user ? user.referralCode : null,
+            count: user ? user.referralCount : 0,
+            progress: user ? user.referralProgress : 0,
+            rewarded: user ? user.referralRewarded100MB : false
+        };
 
-        // Get referral stats
-const referralStats = {
-    code: user ? user.referralCode : null,
-    count: user ? user.referralCount : 0,
-    rewards: user ? user.referralRewards : 0
-};
-    } catch (error) {
-        console.error('Dashboard error:', error);
+        // 7. Render
         res.render('dashboard', {
             user: req.session.user,
-            bundles: [],
+            bundles: allBundles,
+            transactions: userTransactions.slice(0, 10),
+            bonusStatus: bonusStatus,
+            announcements: announcements,
+            referralStats: referralStats,
+            flashSale: flashSale
+        });
+
+    } catch (error) {
+        console.error('Dashboard error:', error);
+
+        // Fallback: build bundles without flash sale
+        const fallbackBundles = PLANS.map((plan, index) => ({
+            id: index + 1,
+            name: plan.gb + 'GB SME Bundle',
+            price: plan.price,
+            originalPrice: plan.originalPrice,
+            data: plan.gb + 'GB',
+            isOnSale: false,
+            saleOriginalPrice: plan.price,
+            discountPercent: 0
+        }));
+
+        res.render('dashboard', {
+            user: req.session.user,
+            bundles: fallbackBundles,
             transactions: [],
             bonusStatus: { unlocked: false },
-            announcements: []
+            announcements: [],
+            referralStats: { code: null, count: 0, progress: 0, rewarded: false },
+            flashSale: null
         });
     }
 });
@@ -847,6 +922,82 @@ app.post('/admin/announcements/delete/:id', async (req, res) => {
     } catch (error) {
         console.error('Delete error:', error);
         res.redirect('/admin/announcements?error=DeleteFailed');
+    }
+});
+// ========== ADMIN FLASH SALES ==========
+app.get('/admin/flash-sales', async (req, res) => {
+    if (!req.session.isAdmin) {
+        return res.redirect('/admin');
+    }
+
+    try {
+        const sales = await FlashSale.find().sort({ createdAt: -1 });
+        const activeSale = await getActiveFlashSale();
+
+        res.render('admin-flash-sales', {
+            sales: sales,
+            activeSale: activeSale,
+            success: req.query.success || null,
+            error: req.query.error || null
+        });
+    } catch (error) {
+        console.error('Flash sales error:', error);
+        res.render('admin-flash-sales', {
+            sales: [],
+            activeSale: null,
+            success: null,
+            error: 'Failed to load flash sales'
+        });
+    }
+});
+
+app.post('/admin/flash-sales/create', async (req, res) => {
+    if (!req.session.isAdmin) return res.redirect('/admin');
+
+    try {
+        const { name, discountPercent, durationHours } = req.body;
+
+        if (!name || !discountPercent || !durationHours) {
+            return res.redirect('/admin/flash-sales?error=MissingFields');
+        }
+
+        // Deactivate any existing active sale
+        await FlashSale.updateMany(
+            { active: true },
+            { $set: { active: false } }
+        );
+
+        const startTime = new Date();
+        const endTime = new Date();
+        endTime.setHours(endTime.getHours() + parseInt(durationHours));
+
+        await FlashSale.create({
+            name: name.trim(),
+            discountPercent: parseInt(discountPercent),
+            startTime: startTime,
+            endTime: endTime,
+            active: true
+        });
+
+        res.redirect('/admin/flash-sales?success=Created');
+    } catch (error) {
+        console.error('Create flash sale error:', error);
+        res.redirect('/admin/flash-sales?error=CreateFailed');
+    }
+});
+
+app.post('/admin/flash-sales/stop/:id', async (req, res) => {
+    if (!req.session.isAdmin) return res.redirect('/admin');
+
+    try {
+        await FlashSale.updateOne(
+            { _id: req.params.id },
+            { $set: { active: false, endTime: new Date() } }
+        );
+        res.redirect('/admin/flash-sales?success=Stopped');
+    } catch (error) {
+        console.error('Stop flash sale error:', error);
+        res.redirect('/admin/flash-sales?error=StopFailed');
     }
 });
 
