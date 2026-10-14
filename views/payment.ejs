@@ -1,4 +1,5 @@
 <%- include('partials/header') %>
+
 <!-- Hidden: Default bundle from dashboard -->
 <div id="defaultBundleData"
      data-gb="<%= bundle.gb %>"
@@ -6,6 +7,7 @@
      data-name="<%= bundle.name %>"
      data-original="<%= bundle.originalPrice %>"
      style="display:none;"></div>
+
 <div class="max-w-3xl mx-auto px-4 py-6">
 
     <!-- STEP 1: Choose Network -->
@@ -27,7 +29,7 @@
         </div>
     </div>
 
-    <!-- STEP 2: Your Selection (default from dashboard) -->
+    <!-- STEP 2: Your Selection -->
     <div class="glass rounded-2xl p-5 mb-5 hidden" id="selectionSection">
         <h2 class="text-lg font-bold text-white mb-4">
             <span class="text-blue-400">2.</span>
@@ -59,7 +61,7 @@
         </div>
     </div>
 
-    <!-- STEP 3: More Plans (hidden until user clicks "See More") -->
+    <!-- STEP 3: More Plans -->
     <div class="glass rounded-2xl p-5 mb-5 hidden" id="morePlansSection">
         <h2 class="text-lg font-bold text-white mb-4">
             <span class="text-blue-400">3.</span>
@@ -72,9 +74,6 @@
             </button>
             <button type="button" id="tabData" class="plan-tab flex-1 py-2 rounded-xl font-semibold text-xs sm:text-sm transition">
                 📶 <%= lang === 'sw' ? 'Kubwa' : 'Big' %>
-            </button>
-            <button type="button" id="tabCombo" class="plan-tab flex-1 py-2 rounded-xl font-semibold text-xs sm:text-sm transition hidden">
-                🎁 <%= lang === 'sw' ? 'Combo' : 'Combo' %>
             </button>
         </div>
 
@@ -121,8 +120,13 @@
 
             <div class="mb-4">
                 <label class="block text-white text-sm font-semibold mb-2">
-                    <%= lang === 'sw' ? 'Namba yako ya Simu' : 'Your Phone Number' %>
+                    <%= lang === 'sw' ? 'Namba ya Simu ya Mpokeaji' : "Recipient's Phone Number" %>
                 </label>
+                <p class="text-xs text-gray-400 mb-2">
+                    <%= lang === 'sw' 
+                        ? 'Ukinunua kwa ajili yako mwenyewe, weka namba yako. Ukinunua kwa mtu mwingine, weka namba yake.' 
+                        : 'Buying for yourself? Enter your own number. Buying for someone else? Enter their number.' %>
+                </p>
                 <input type="tel" name="phoneNumber" placeholder="0712345678" required
                        class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
@@ -165,7 +169,7 @@
 
 <script>
 // ============================================
-// DEFAULT BUNDLE (read from hidden data element)
+// DEFAULT BUNDLE (from dashboard click)
 // ============================================
 const bundleData = document.getElementById('defaultBundleData');
 const DEFAULT_BUNDLE = {
@@ -176,7 +180,7 @@ const DEFAULT_BUNDLE = {
 };
 
 // ============================================
-// NETWORK PLANS (per provider)
+// NETWORK PLANS (NO COMBO PLANS — data only)
 // ============================================
 const SMALL_PLANS = [
     { gb: 1, price: 1200, note: '1GB' },
@@ -194,11 +198,6 @@ const NETWORK_PLANS = {
             { gb: 15, price: 15000, note: 'Kila Mwezi' },
             { gb: 35, price: 30000, note: 'Kila Mwezi' },
             { gb: 48, price: 40000, note: 'Kila Mwezi' }
-        ],
-        comboPlans: [
-            { gb: 10, price: 15000, note: 'Kila Mwezi', extra: 'GB 10 + DK 400' },
-            { gb: 25, price: 30000, note: 'Kila Mwezi', extra: 'GB 25 + DK 1000' },
-            { gb: 35, price: 40000, note: 'Kila Mwezi', extra: 'GB 35 + DK 2000' }
         ]
     },
     halotel: {
@@ -206,13 +205,16 @@ const NETWORK_PLANS = {
         smallPlans: SMALL_PLANS,
         dataPlans: [
             { gb: 5,  price: 6000,  note: 'Internet Bundle' },
+            { gb: 6,  price: 7000,  note: 'Internet Bundle' },
+            { gb: 7,  price: 8000,  note: 'Internet Bundle' },
+            { gb: 8,  price: 9000,  note: 'Internet Bundle' },
+            { gb: 9,  price: 10000, note: 'Internet Bundle' },
             { gb: 10, price: 11000, note: 'Internet Bundle' },
             { gb: 15, price: 15000, note: 'Internet Bundle' },
             { gb: 20, price: 20000, note: 'Internet Bundle' },
             { gb: 25, price: 25000, note: 'Internet Bundle' },
             { gb: 30, price: 30000, note: 'Internet Bundle' }
-        ],
-        comboPlans: []
+        ]
     },
     airtel: {
         name: 'Airtel',
@@ -222,8 +224,7 @@ const NETWORK_PLANS = {
             { gb: 10, price: 10000, note: 'Data Bundle' },
             { gb: 20, price: 20000, note: 'Data Bundle' },
             { gb: 30, price: 30000, note: 'Data Bundle' }
-        ],
-        comboPlans: []
+        ]
     },
     vodacom: {
         name: 'Vodacom',
@@ -236,15 +237,6 @@ const NETWORK_PLANS = {
             { gb: 75,  price: 60000,  note: 'Siku 30' },
             { gb: 100, price: 75000,  note: 'Siku 30' },
             { gb: 150, price: 100000, note: 'Siku 30' }
-        ],
-        comboPlans: [
-            { gb: 7,   price: 15000,  note: 'Siku 30', extra: 'GB 7 + DKK 500 + SMS 100' },
-            { gb: 10,  price: 20000,  note: 'Siku 30', extra: 'GB 10 + DKK 1000 + SMS 100' },
-            { gb: 20,  price: 30000,  note: 'Siku 30', extra: 'GB 20 + DKK 1500 + SMS 100' },
-            { gb: 50,  price: 50000,  note: 'Siku 30', extra: 'GB 50 + DKK 2000 + SMS 100' },
-            { gb: 60,  price: 60000,  note: 'Siku 30', extra: 'GB 60 + DKK 3000 + SMS 100' },
-            { gb: 80,  price: 75000,  note: 'Siku 30', extra: 'GB 80 + DKK 5000 + SMS 100' },
-            { gb: 120, price: 100000, note: 'Siku 30', extra: 'GB 120 + DKK 8000 + SMS 100' }
         ]
     }
 };
@@ -269,32 +261,19 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('inputPaymentMethod').value = selectedProvider.payment;
             document.getElementById('inputProviderName').value = selectedProvider.name;
 
-            // Reset
             selectedPlan = null;
             document.getElementById('confirmSection').classList.add('hidden');
             document.getElementById('morePlansSection').classList.add('hidden');
-
-            // Show default selection
             document.getElementById('selectionSection').classList.remove('hidden');
-
-            // Check combo availability
-            const networkData = NETWORK_PLANS[selectedProvider.id];
-            const hasCombo = networkData && networkData.comboPlans && networkData.comboPlans.length > 0;
-            if (hasCombo) {
-                document.getElementById('tabCombo').classList.remove('hidden');
-            } else {
-                document.getElementById('tabCombo').classList.add('hidden');
-            }
 
             document.getElementById('selectionSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     });
 
-    // ========== "CONTINUE WITH THIS" BUTTON ==========
+    // ========== CONTINUE WITH DEFAULT ==========
     document.getElementById('continueBtn').addEventListener('click', function() {
         if (!selectedProvider) return;
 
-        // Use the default bundle
         selectedPlan = {
             gb: DEFAULT_BUNDLE.gb,
             price: DEFAULT_BUNDLE.price,
@@ -315,7 +294,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('confirmSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
-    // ========== "SEE MORE PLANS" BUTTON ==========
+    // ========== SEE MORE PLANS ==========
     document.getElementById('morePlansBtn').addEventListener('click', function() {
         document.getElementById('morePlansSection').classList.remove('hidden');
         currentPlanType = 'small';
@@ -334,11 +313,6 @@ document.addEventListener('DOMContentLoaded', function() {
         renderPlans();
     });
 
-    document.getElementById('tabCombo').addEventListener('click', function() {
-        currentPlanType = 'combo';
-        renderPlans();
-    });
-
     // ========== RENDER PLANS ==========
     function renderPlans() {
         if (!selectedProvider) return;
@@ -350,12 +324,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentPlanType === 'small') {
             plans = networkData.smallPlans || [];
             typeLabel = 'Small Bundle';
-        } else if (currentPlanType === 'combo') {
-            plans = networkData.comboPlans || [];
-            typeLabel = 'Combo Plan';
         } else {
             plans = networkData.dataPlans || [];
-            typeLabel = 'Big Data Plan';
+            typeLabel = 'Data Bundle';
         }
 
         const planGrid = document.getElementById('planGrid');
@@ -363,7 +334,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         document.getElementById('tabSmall').classList.toggle('active', currentPlanType === 'small');
         document.getElementById('tabData').classList.toggle('active', currentPlanType === 'data');
-        document.getElementById('tabCombo').classList.toggle('active', currentPlanType === 'combo');
 
         if (!plans || plans.length === 0) {
             planGrid.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">No plans here</div>';
@@ -376,7 +346,6 @@ document.addEventListener('DOMContentLoaded', function() {
             card.innerHTML = `
                 <div class="text-xl font-bold text-blue-400">${plan.gb}GB</div>
                 <div class="text-sm font-bold text-white mt-1">TZS ${plan.price.toLocaleString()}</div>
-                ${plan.extra ? `<div class="text-xs text-purple-300 mt-1">${plan.extra}</div>` : ''}
                 <div class="text-xs text-gray-400 mt-1">${plan.note || ''}</div>
             `;
 
@@ -388,7 +357,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     gb: plan.gb,
                     price: plan.price,
                     type: currentPlanType,
-                    label: plan.extra || (plan.gb + 'GB ' + typeLabel)
+                    label: plan.gb + 'GB ' + typeLabel
                 };
 
                 document.getElementById('summaryProvider').textContent = selectedProvider.name;
