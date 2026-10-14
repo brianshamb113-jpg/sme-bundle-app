@@ -42,6 +42,12 @@ const userSchema = new mongoose.Schema({
     referralCount: { type: Number, default: 0 },
     referralRewarded: { type: Boolean, default: false }, // has the referrer been rewarded for this user
     referralRewards: { type: Number, default: 0 }        // total 100MB rewards earned
+// Saved recipients (max 5)
+savedNumbers: [{
+    nickname: { type: String, required: true },
+    phone: { type: String, required: true },
+    addedAt: { type: Date, default: Date.now }
+    }]
 });
 
 const transactionSchema = new mongoose.Schema({
@@ -463,7 +469,7 @@ app.get('/dashboard', async (req, res) => {
 });
 
 // BUY BUNDLE
-app.post('/buy', (req, res) => {
+app.post('/buy', async (req, res) => {
     if (!req.session.user) {
         return res.redirect('/login');
     }
@@ -471,6 +477,9 @@ app.post('/buy', (req, res) => {
     const bundleId = parseInt(req.body.bundleId);
     const plan = PLANS[bundleId - 1] || PLANS[0];
     const transactionId = uuidv4().substring(0, 8).toUpperCase();
+
+    // Get user's saved numbers
+    const user = await User.findOne({ phone: req.session.user.phone });
 
     res.render('payment', {
         user: req.session.user,
@@ -484,6 +493,8 @@ app.post('/buy', (req, res) => {
         },
         providers: PROVIDERS,
         transactionId: transactionId,
+        savedNumbers: user ? user.savedNumbers : [],
+        userPhone: req.session.user.phone,
         error: null,
         success: null
     });
@@ -495,7 +506,7 @@ app.post('/process-payment', async (req, res) => {
         return res.redirect('/login');
     }
 
-    const { planGb, planPrice, planType, planLabel, paymentMethod, phoneNumber, providerName } = req.body;
+    const { planGb, planPrice, planType, planLabel, paymentMethod, phoneNumber, providerName, saveRecipient, recipientNickname } = req.body;
 
     if (!planGb || !planPrice) {
         return res.redirect('/dashboard');
@@ -614,6 +625,72 @@ app.get('/transactions', async (req, res) => {
             user: req.session.user,
             transactions: []
         });
+    }
+});
+// Save recipient if requested
+if (saveRecipient === 'yes' && recipientNickname && recipientNickname.trim()) {
+    const buyer = await User.findOne({ phone: req.session.user.phone });
+    if (buyer && buyer.savedNumbers.length < 5) {
+        // Check for duplicate phone
+        const isDuplicate = buyer.savedNumbers.some(n => n.phone === phoneNumber);
+        if (!isDuplicate && phoneNumber !== req.session.user.phone) {
+            buyer.savedNumbers.push({
+                nickname: recipientNickname.trim(),
+                phone: phoneNumber
+            });
+            await buyer.save();
+            console.log(`💾 Saved recipient: ${recipientNickname} (${phoneNumber})`);
+        }
+    }
+}
+// ========== SAVED NUMBERS (DATA GIFTING) ==========
+app.post('/settings/saved-numbers/add', async (req, res) => {
+    if (!req.session.user) return res.redirect('/login');
+
+    try {
+        const { nickname, phone } = req.body;
+
+        if (!nickname || !phone || phone.length < 10) {
+            return res.redirect('/settings?error=invalidnumber');
+        }
+
+        const user = await User.findOne({ phone: req.session.user.phone });
+        if (!user) return res.redirect('/login');
+
+        if (user.savedNumbers.length >= 5) {
+            return res.redirect('/settings?error=maxnumbers');
+        }
+
+        user.savedNumbers.push({
+            nickname: nickname.trim(),
+            phone: phone.trim()
+        });
+
+        await user.save();
+        res.redirect('/settings?success=numberadded');
+    } catch (error) {
+        console.error('Add number error:', error);
+        res.redirect('/settings?error=addfailed');
+    }
+});
+
+app.post('/settings/saved-numbers/delete/:index', async (req, res) => {
+    if (!req.session.user) return res.redirect('/login');
+
+    try {
+        const index = parseInt(req.params.index);
+        const user = await User.findOne({ phone: req.session.user.phone });
+        if (!user) return res.redirect('/login');
+
+        if (index >= 0 && index < user.savedNumbers.length) {
+            user.savedNumbers.splice(index, 1);
+            await user.save();
+        }
+
+        res.redirect('/settings?success=numberdeleted');
+    } catch (error) {
+        console.error('Delete number error:', error);
+        res.redirect('/settings?error=deletefailed');
     }
 });
 

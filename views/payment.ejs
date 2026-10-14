@@ -119,17 +119,51 @@
             <input type="hidden" name="providerName" id="inputProviderName" value="">
 
             <div class="mb-4">
-                <label class="block text-white text-sm font-semibold mb-2">
-                    <%= lang === 'sw' ? 'Namba ya Simu ya Mpokeaji' : "Recipient's Phone Number" %>
-                </label>
-                <p class="text-xs text-gray-400 mb-2">
-                    <%= lang === 'sw' 
-                        ? 'Ukinunua kwa ajili yako mwenyewe, weka namba yako. Ukinunua kwa mtu mwingine, weka namba yake.' 
-                        : 'Buying for yourself? Enter your own number. Buying for someone else? Enter their number.' %>
-                </p>
-                <input type="tel" name="phoneNumber" placeholder="0712345678" required
-                       class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
+    <label class="block text-white text-sm font-semibold mb-2">
+        <%= lang === 'sw' ? 'Namba ya Simu ya Mpokeaji' : "Recipient's Phone Number" %>
+    </label>
+    <p class="text-xs text-gray-400 mb-3">
+        <%= lang === 'sw' 
+            ? 'Ukinunua kwa ajili yako mwenyewe, weka namba yako. Ukinunua kwa mtu mwingine, weka namba yake.' 
+            : 'Buying for yourself? Enter your own number. Buying for someone else? Enter their number.' %>
+    </p>
+
+    <!-- Quick Select Saved Numbers -->
+    <% if (typeof savedNumbers !== 'undefined' && savedNumbers.length > 0) { %>
+        <div class="flex gap-2 mb-3 overflow-x-auto pb-2">
+            <button type="button" 
+                    onclick="fillRecipient('<%= userPhone %>', 'Self')"
+                    class="flex-shrink-0 px-3 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-300 text-xs font-semibold hover:bg-blue-500/30 transition">
+                👤 <%= lang === 'sw' ? 'Mimi' : 'Me' %>
+            </button>
+            <% savedNumbers.forEach(function(saved) { %>
+                <button type="button" 
+                        onclick="fillRecipient('<%= saved.phone %>', '<%= saved.nickname %>')"
+                        class="flex-shrink-0 px-3 py-2 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-300 text-xs font-semibold hover:bg-purple-500/30 transition">
+                    👥 <%= saved.nickname %>
+                </button>
+            <% }); %>
+        </div>
+    <% } %>
+
+    <input type="tel" name="phoneNumber" id="phoneNumber" placeholder="0712345678" required
+           class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+    <!-- Save recipient option (hidden by default, shown when different from own number) -->
+    <div id="saveRecipientBox" class="mt-3 hidden">
+        <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" name="saveRecipient" value="yes" id="saveRecipientCheck"
+                   class="w-4 h-4 rounded accent-purple-500">
+            <span class="text-xs text-gray-300">
+                <%= lang === 'sw' ? 'Hifadhi namba hii kwa manunuzi ya baadaye' : 'Save this number for future purchases' %>
+            </span>
+        </label>
+        <input type="text" name="recipientNickname" id="recipientNickname" 
+               placeholder="<%= lang === 'sw' ? 'Jina la utani (mf: Mama, Rafiki)' : 'Nickname (e.g., Mom, Friend)' %>"
+               maxlength="20"
+               class="mt-2 w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 hidden">
+    </div>
+</div>>
 
             <button type="submit" id="payBtn" class="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 rounded-xl font-bold text-white hover:scale-105 transition text-lg">
                 ✅ <%= lang === 'sw' ? 'Thibitisha Malipo' : 'Confirm Payment' %>
@@ -384,6 +418,45 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.textContent = '⏳ Processing...';
     });
 });
+    // ========== DATA GIFTING: SAVED RECIPIENTS ==========
+    const phoneInput = document.getElementById('phoneNumber');
+    const saveBox = document.getElementById('saveRecipientBox');
+    const saveCheck = document.getElementById('saveRecipientCheck');
+    const nicknameInput = document.getElementById('recipientNickname');
+    const userPhone = '<%= typeof userPhone !== "undefined" ? userPhone : "" %>';
+
+    if (phoneInput) {
+        function checkRecipient() {
+            const enteredPhone = phoneInput.value.trim();
+            if (enteredPhone && enteredPhone.length >= 10 && enteredPhone !== userPhone) {
+                saveBox.classList.remove('hidden');
+            } else {
+                saveBox.classList.add('hidden');
+                saveCheck.checked = false;
+                nicknameInput.classList.add('hidden');
+            }
+        }
+
+        phoneInput.addEventListener('input', checkRecipient);
+        phoneInput.addEventListener('blur', checkRecipient);
+
+        saveCheck.addEventListener('change', function() {
+            if (this.checked) {
+                nicknameInput.classList.remove('hidden');
+                nicknameInput.focus();
+            } else {
+                nicknameInput.classList.add('hidden');
+            }
+        });
+    }
+
+    // Fill recipient field with saved number
+    window.fillRecipient = function(phone, nickname) {
+        if (phoneInput) {
+            phoneInput.value = phone;
+            phoneInput.dispatchEvent(new Event('input'));
+        }
+    };
 </script>
 
 <%- include('partials/footer') %>

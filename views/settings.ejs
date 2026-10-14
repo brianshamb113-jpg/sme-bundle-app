@@ -91,6 +91,60 @@
             </button>
         </form>
     </div>
+    <!-- Saved Recipients -->
+<div class="glass rounded-2xl p-6 mb-6">
+    <h2 class="text-xl font-bold text-white mb-4">
+        👥 <%= lang === 'sw' ? 'Namba Zilizohifadhiwa' : 'Saved Numbers' %>
+    </h2>
+    <p class="text-gray-400 text-sm mb-4">
+        <%= lang === 'sw' 
+            ? 'Hifadhi namba za marafiki au familia ili kuweza kuwanunulia bundles kwa haraka zaidi.' 
+            : 'Save friends or family numbers to buy bundles for them faster.' %>
+    </p>
+
+    <% if (typeof userDetails.savedNumbers !== 'undefined' && userDetails.savedNumbers.length > 0) { %>
+        <div class="space-y-2 mb-4">
+            <% userDetails.savedNumbers.forEach(function(saved, index) { %>
+                <div class="flex justify-between items-center bg-white/5 rounded-xl p-3">
+                    <div>
+                        <div class="text-white font-semibold"><%= saved.nickname %></div>
+                        <div class="text-xs text-gray-400"><%= saved.phone %></div>
+                    </div>
+                    <form action="/settings/saved-numbers/delete/<%= index %>" method="POST" style="display:inline;">
+                        <button type="submit" onclick="return confirm('<%= lang === 'sw' ? 'Futa namba hii?' : 'Delete this number?' %>')"
+                                class="px-3 py-1.5 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-xs font-semibold hover:bg-red-500/30 transition">
+                            🗑️ <%= lang === 'sw' ? 'Futa' : 'Delete' %>
+                        </button>
+                    </form>
+                </div>
+            <% }); %>
+        </div>
+    <% } else { %>
+        <p class="text-gray-500 text-sm text-center py-4 mb-4">
+            <%= lang === 'sw' ? 'Hakuna namba zilizohifadhiwa' : 'No saved numbers yet' %>
+        </p>
+    <% } %>
+
+    <% if (userDetails.savedNumbers.length < 5) { %>
+        <form action="/settings/saved-numbers/add" method="POST" class="border-t border-white/10 pt-4">
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <input type="text" name="nickname" required maxlength="20"
+                       placeholder="<%= lang === 'sw' ? 'Jina (mf: Mama)' : 'Nickname (e.g., Mom)' %>"
+                       class="px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="tel" name="phone" required
+                       placeholder="0712345678"
+                       class="px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button type="submit" class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl text-white font-semibold hover:scale-105 transition">
+                ➕ <%= lang === 'sw' ? 'Ongeza Namba' : 'Add Number' %>
+            </button>
+        </form>
+    <% } else { %>
+        <p class="text-yellow-400 text-xs text-center mt-3">
+            ⚠️ <%= lang === 'sw' ? 'Kikomo cha namba 5 kimefikiwa' : 'Maximum of 5 numbers reached' %>
+        </p>
+    <% } %>
+</div>
 
     <!-- Change Password -->
     <div class="glass rounded-2xl p-6 mb-6">
