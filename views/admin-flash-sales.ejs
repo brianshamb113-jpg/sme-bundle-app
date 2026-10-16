@@ -1,0 +1,110 @@
+<%- include('partials/header') %>
+
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+        <h1 class="text-2xl font-bold text-white">⚡ <%= lang === 'sw' ? 'Punguzo la Papara' : 'Flash Sales' %></h1>
+        <a href="/admin" class="text-sm text-gray-400 hover:text-white transition">
+            ← <%= lang === 'sw' ? 'Rudi Admin' : 'Back to Admin' %>
+        </a>
+    </div>
+
+    <% if (typeof success !== 'undefined' && success) { %>
+        <div class="bg-green-500/20 border border-green-500/30 text-green-300 p-3 rounded-xl mb-4">✅ <%= success %></div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+        <div class="bg-red-500/20 border border-red-500/30 text-red-300 p-3 rounded-xl mb-4">❌ <%= error %></div>
+    <% } %>
+
+    <!-- Active Sale -->
+    <% if (activeSale) { %>
+        <div class="glass rounded-2xl p-6 mb-6 border-2 border-red-500/50 bg-gradient-to-r from-red-500/10 to-orange-500/10">
+            <div class="flex justify-between items-center flex-wrap gap-3">
+                <div>
+                    <div class="text-xs text-red-400 font-semibold mb-1">🔴 <%= lang === 'sw' ? 'INAFANYA KAZI SASA' : 'LIVE NOW' %></div>
+                    <h2 class="text-xl font-bold text-white"><%= activeSale.name %></h2>
+                    <p class="text-sm text-gray-300 mt-1">
+                        <strong class="text-red-400"><%= activeSale.discountPercent %>%</strong> <%= lang === 'sw' ? 'punguzo kwa bundles zote' : 'discount on all bundles' %>
+                    </p>
+                    <p class="text-xs text-gray-400 mt-2">
+                        <%= lang === 'sw' ? 'Inaisha' : 'Ends' %>: <%= new Date(activeSale.endTime).toLocaleString('en-TZ') %>
+                    </p>
+                </div>
+                <form action="/admin/flash-sales/stop/<%= activeSale._id %>" method="POST">
+                    <button type="submit" onclick="return confirm('<%= lang === 'sw' ? 'Acha punguzo hili?' : 'Stop this sale?' %>')"
+                            class="px-6 py-3 bg-red-500 rounded-xl text-white font-semibold hover:bg-red-600 transition">
+                        ⏹️ <%= lang === 'sw' ? 'Acha' : 'Stop' %>
+                    </button>
+                </form>
+            </div>
+        </div>
+    <% } %>
+
+    <!-- Create New Sale -->
+    <div class="glass rounded-2xl p-6 mb-6">
+        <h2 class="text-lg font-bold text-white mb-4">➕ <%= lang === 'sw' ? 'Tengeneza Punguzo Jipya' : 'Create New Flash Sale' %></h2>
+        
+        <% if (activeSale) { %>
+            <div class="bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 p-3 rounded-xl mb-4 text-sm">
+                ⚠️ <%= lang === 'sw' ? 'Punguzo jipya litazuia lililopo' : 'Creating a new sale will stop the current one' %>
+            </div>
+        <% } %>
+        
+        <form action="/admin/flash-sales/create" method="POST">
+            <div class="mb-4">
+                <label class="block text-white text-sm font-semibold mb-2"><%= lang === 'sw' ? 'Jina la Punguzo' : 'Sale Name' %></label>
+                <input type="text" name="name" required maxlength="60"
+                       placeholder="<%= lang === 'sw' ? 'Mfano: Punguzo la Wiki' : 'e.g., Weekend Sale' %>"
+                       class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-white text-sm font-semibold mb-2"><%= lang === 'sw' ? 'Punguzo (%)' : 'Discount (%)' %></label>
+                    <input type="number" name="discountPercent" required min="1" max="90" value="20"
+                           class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-white text-sm font-semibold mb-2"><%= lang === 'sw' ? 'Muda (Masaa)' : 'Duration (Hours)' %></label>
+                    <input type="number" name="durationHours" required min="1" max="168" value="4"
+                           class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            
+            <button type="submit" class="w-full py-3 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl font-semibold text-white hover:scale-105 transition">
+                ⚡ <%= lang === 'sw' ? 'Anzisha Punguzo' : 'Launch Flash Sale' %>
+            </button>
+        </form>
+    </div>
+
+    <!-- Sale History -->
+    <div class="glass rounded-2xl p-6">
+        <h2 class="text-lg font-bold text-white mb-4">📜 <%= lang === 'sw' ? 'Historia' : 'History' %></h2>
+        <% if (sales.length === 0) { %>
+            <p class="text-gray-400 text-center py-6 text-sm"><%= lang === 'sw' ? 'Hakuna punguzo bado' : 'No flash sales yet' %></p>
+        <% } else { %>
+            <div class="space-y-2">
+                <% sales.forEach(function(s) { %>
+                    <div class="border border-white/10 rounded-xl p-3 flex justify-between items-center">
+                        <div>
+                            <div class="text-white font-semibold text-sm"><%= s.name %></div>
+                            <div class="text-xs text-gray-400">
+                                <%= s.discountPercent %>% • <%= new Date(s.createdAt).toLocaleDateString('en-TZ') %>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <% if (s.active && new Date(s.endTime) > new Date()) { %>
+                                <span class="px-2 py-1 rounded-full bg-red-500/20 text-red-300 text-xs">🔴 LIVE</span>
+                            <% } else { %>
+                                <span class="px-2 py-1 rounded-full bg-gray-500/20 text-gray-400 text-xs">
+                                    <%= lang === 'sw' ? 'Imeisha' : 'Ended' %>
+                                </span>
+                            <% } %>
+                        </div>
+                    </div>
+                <% }); %>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+<%- include('partials/footer') %>

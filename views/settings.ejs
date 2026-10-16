@@ -91,7 +91,7 @@
             </button>
         </form>
     </div>
-    <!-- Saved Recipients -->
+    <<!-- Saved Recipients -->
 <div class="glass rounded-2xl p-6 mb-6">
     <h2 class="text-xl font-bold text-white mb-4">
         👥 <%= lang === 'sw' ? 'Namba Zilizohifadhiwa' : 'Saved Numbers' %>
@@ -110,8 +110,8 @@
                         <div class="text-white font-semibold"><%= saved.nickname %></div>
                         <div class="text-xs text-gray-400"><%= saved.phone %></div>
                     </div>
-                    <form action="/settings/saved-numbers/delete/<%= index %>" method="POST" style="display:inline;">
-                        <button type="submit" onclick="return confirm('<%= lang === 'sw' ? 'Futa namba hii?' : 'Delete this number?' %>')"
+                    <form action="/settings/saved-numbers/delete/<%= index %>" method="POST" style="display:inline;" class="delete-number-form">
+                        <button type="submit"
                                 class="px-3 py-1.5 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-xs font-semibold hover:bg-red-500/30 transition">
                             🗑️ <%= lang === 'sw' ? 'Futa' : 'Delete' %>
                         </button>
@@ -193,5 +193,22 @@
     </div>
 
 </div>
-
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const isSwahili = '<%= lang %>' === 'sw';
+        
+        document.querySelectorAll('.delete-number-form').forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                const msg = isSwahili 
+                    ? 'Futa namba hii?'
+                    : 'Delete this number?';
+                
+                if (!confirm(msg)) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+        });
+    });
+</script>
 <%- include('partials/footer') %>

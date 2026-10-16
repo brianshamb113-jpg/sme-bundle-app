@@ -32,21 +32,18 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     totalPurchases: { type: Number, default: 0 },
     lastPurchaseDate: { type: Date },
-    // Bonus tracking
     lastBonusDate: { type: Date, default: null },
     totalBonusGb: { type: Number, default: 0 },
     bonusUnlockedAt: { type: Date, default: null },
-    // Referral system
     referralCode: { type: String, unique: true, sparse: true, index: true },
     referredBy: { type: String, default: null },
     referralCount: { type: Number, default: 0 },
-    referralRewarded: { type: Boolean, default: false }, // has the referrer been rewarded for this user
-    referralRewards: { type: Number, default: 0 }        // total 100MB rewards earned
-// Saved recipients (max 5)
-savedNumbers: [{
-    nickname: { type: String, required: true },
-    phone: { type: String, required: true },
-    addedAt: { type: Date, default: Date.now }
+    referralRewarded: { type: Boolean, default: false },
+    referralRewards: { type: Number, default: 0 },
+    savedNumbers: [{
+        nickname: { type: String, required: true },
+        phone: { type: String, required: true },
+        addedAt: { type: Date, default: Date.now }
     }]
 });
 
@@ -501,6 +498,7 @@ app.post('/buy', async (req, res) => {
 });
 
 // PROCESS PAYMENT
+// PROCESS PAYMENT
 app.post('/process-payment', async (req, res) => {
     if (!req.session.user) {
         return res.redirect('/login');
@@ -539,6 +537,7 @@ app.post('/process-payment', async (req, res) => {
         await new Promise(resolve => setTimeout(resolve, 1500));
         const confirmationCode = Math.random().toString(36).substring(2, 10).toUpperCase();
 
+        // 1. Create transaction
         const transaction = await Transaction.create({
             id: transactionId,
             phone: req.session.user.phone,
@@ -552,41 +551,57 @@ app.post('/process-payment', async (req, res) => {
             delivered: true
         });
 
-            await User.updateOne(
+        // 2. Update user's purchase count
+        await User.updateOne(
             { phone: req.session.user.phone },
             { $inc: { totalPurchases: 1 }, $set: { lastPurchaseDate: new Date() } }
-         );
-         // ========== REFERRAL REWARD LOGIC ==========
-// If this user was referred and hasn't triggered a reward yet
-const purchaser = await User.findOne({ phone: req.session.user.phone });
-
-if (purchaser && purchaser.referredBy && !purchaser.referralRewarded) {
-    const referrer = await User.findOne({ phone: purchaser.referredBy });
-    if (referrer) {
-        // Reward BOTH users with 100MB
-        await ReferralLog.create({
-            referrerPhone: referrer.phone,
-            referrerName: referrer.fullname,
-            newUserPhone: purchaser.phone,
-            newUserName: purchaser.fullname,
-            rewardMb: 100
-        });
-
-        await User.updateOne(
-            { phone: referrer.phone },
-            { $inc: { referralCount: 1, referralRewards: 1 } }
         );
 
-        await User.updateOne(
-            { phone: purchaser.phone },
-            { $set: { referralRewarded: true } }
-        );
+        // 3. Referral reward logic
+        const purchaser = await User.findOne({ phone: req.session.user.phone });
 
-        console.log(`🎁 Referral reward: 100MB to ${referrer.fullname} and ${purchaser.fullname}`);
-        
-        // TODO: Trigger SIM automation to send 100MB to both
-    }
-}
+        if (purchaser && purchaser.referredBy && !purchaser.referralRewarded) {
+            const referrer = await User.findOne({ phone: purchaser.referredBy });
+            if (referrer) {
+                await ReferralLog.create({
+                    referrerPhone: referrer.phone,
+                    referrerName: referrer.fullname,
+                    newUserPhone: purchaser.phone,
+                    newUserName: purchaser.fullname,
+                    rewardMb: 100
+                });
+
+                await User.updateOne(
+                    { phone: referrer.phone },
+                    { $inc: { referralCount: 1, referralRewards: 1 } }
+                );
+
+                await User.updateOne(
+                    { phone: purchaser.phone },
+                    { $set: { referralRewarded: true } }
+                );
+
+                console.log(`🎁 Referral reward: 100MB to ${referrer.fullname} and ${purchaser.fullname}`);
+            }
+        }
+
+        // 4. Save recipient if requested (DATA GIFTING) — MOVED INSIDE
+        if (saveRecipient === 'yes' && recipientNickname && recipientNickname.trim()) {
+            const buyer = await User.findOne({ phone: req.session.user.phone });
+            if (buyer && buyer.savedNumbers.length < 5) {
+                const isDuplicate = buyer.savedNumbers.some(n => n.phone === phoneNumber);
+                if (!isDuplicate && phoneNumber !== req.session.user.phone) {
+                    buyer.savedNumbers.push({
+                        nickname: recipientNickname.trim(),
+                        phone: phoneNumber
+                    });
+                    await buyer.save();
+                    console.log(`💾 Saved recipient: ${recipientNickname} (${phoneNumber})`);
+                }
+            }
+        }
+
+        // 5. Render success page
         res.render('payment-success', {
             user: req.session.user,
             bundle: bundle,
@@ -627,22 +642,7 @@ app.get('/transactions', async (req, res) => {
         });
     }
 });
-// Save recipient if requested
-if (saveRecipient === 'yes' && recipientNickname && recipientNickname.trim()) {
-    const buyer = await User.findOne({ phone: req.session.user.phone });
-    if (buyer && buyer.savedNumbers.length < 5) {
-        // Check for duplicate phone
-        const isDuplicate = buyer.savedNumbers.some(n => n.phone === phoneNumber);
-        if (!isDuplicate && phoneNumber !== req.session.user.phone) {
-            buyer.savedNumbers.push({
-                nickname: recipientNickname.trim(),
-                phone: phoneNumber
-            });
-            await buyer.save();
-            console.log(`💾 Saved recipient: ${recipientNickname} (${phoneNumber})`);
-        }
-    }
-}
+
 // ========== SAVED NUMBERS (DATA GIFTING) ==========
 app.post('/settings/saved-numbers/add', async (req, res) => {
     if (!req.session.user) return res.redirect('/login');
