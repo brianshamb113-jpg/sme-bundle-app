@@ -10,6 +10,11 @@
 
 <div class="max-w-3xl mx-auto px-4 py-6">
 
+    <!-- Hidden: Network plans from DB (using script tag to avoid quote issues) -->
+<script id="networkPlansData" type="application/json">
+    <%- typeof networkPlansData !== 'undefined' ? JSON.stringify(networkPlansData) : '{}' %>
+</script>
+
     <!-- STEP 1: Choose Network -->
     <div class="glass rounded-2xl p-5 mb-5">
         <h2 class="text-lg font-bold text-white mb-4">
@@ -146,7 +151,7 @@
         </div>
     <% } %>
 
-    <input type="tel" name="phoneNumber" id="phoneNumber" placeholder="0712345678" required
+    <input type="tel" name="phoneNumber" id="phoneNumber" placeholder="0xxxxxxxxx" required
            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
 
     <!-- Save recipient option (hidden by default, shown when different from own number) -->
@@ -216,64 +221,8 @@ const DEFAULT_BUNDLE = {
 // ============================================
 // NETWORK PLANS (NO COMBO PLANS — data only)
 // ============================================
-const SMALL_PLANS = [
-    { gb: 1, price: 1200, note: '1GB' },
-    { gb: 2, price: 2400, note: '2GB' },
-    { gb: 3, price: 3600, note: '3GB' },
-    { gb: 5, price: 6000, note: '5GB' },
-    { gb: 10, price: 12000, note: '10GB' }
-];
-
-const NETWORK_PLANS = {
-    yas: {
-        name: 'Yas (Tigo)',
-        smallPlans: SMALL_PLANS,
-        dataPlans: [
-            { gb: 15, price: 15000, note: 'Kila Mwezi' },
-            { gb: 35, price: 30000, note: 'Kila Mwezi' },
-            { gb: 48, price: 40000, note: 'Kila Mwezi' }
-        ]
-    },
-    halotel: {
-        name: 'Halotel',
-        smallPlans: SMALL_PLANS,
-        dataPlans: [
-            { gb: 5,  price: 6000,  note: 'Internet Bundle' },
-            { gb: 6,  price: 7000,  note: 'Internet Bundle' },
-            { gb: 7,  price: 8000,  note: 'Internet Bundle' },
-            { gb: 8,  price: 9000,  note: 'Internet Bundle' },
-            { gb: 9,  price: 10000, note: 'Internet Bundle' },
-            { gb: 10, price: 11000, note: 'Internet Bundle' },
-            { gb: 15, price: 15000, note: 'Internet Bundle' },
-            { gb: 20, price: 20000, note: 'Internet Bundle' },
-            { gb: 25, price: 25000, note: 'Internet Bundle' },
-            { gb: 30, price: 30000, note: 'Internet Bundle' }
-        ]
-    },
-    airtel: {
-        name: 'Airtel',
-        smallPlans: SMALL_PLANS,
-        dataPlans: [
-            { gb: 5,  price: 5000,  note: 'Data Bundle' },
-            { gb: 10, price: 10000, note: 'Data Bundle' },
-            { gb: 20, price: 20000, note: 'Data Bundle' },
-            { gb: 30, price: 30000, note: 'Data Bundle' }
-        ]
-    },
-    vodacom: {
-        name: 'Vodacom',
-        smallPlans: SMALL_PLANS,
-        dataPlans: [
-            { gb: 10,  price: 15000,  note: 'Siku 30' },
-            { gb: 15,  price: 20000,  note: 'Siku 30' },
-            { gb: 30,  price: 30000,  note: 'Siku 30' },
-            { gb: 60,  price: 50000,  note: 'Siku 30' },
-            { gb: 75,  price: 60000,  note: 'Siku 30' },
-            { gb: 100, price: 75000,  note: 'Siku 30' },
-            { gb: 150, price: 100000, note: 'Siku 30' }
-        ]
-    }
-};
+const plansDataElement = document.getElementById('networkPlansData');
+const NETWORK_PLANS = plansDataElement ? JSON.parse(plansDataElement.textContent) : {};
 
 document.addEventListener('DOMContentLoaded', function() {
     let selectedProvider = null;

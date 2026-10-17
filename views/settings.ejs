@@ -125,14 +125,14 @@
         </p>
     <% } %>
 
-    <% if (userDetails.savedNumbers.length < 5) { %>
+    <% if (userDetails.savedNumbers.length < 15) { %>
         <form action="/settings/saved-numbers/add" method="POST" class="border-t border-white/10 pt-4">
             <div class="grid grid-cols-2 gap-3 mb-3">
                 <input type="text" name="nickname" required maxlength="20"
                        placeholder="<%= lang === 'sw' ? 'Jina (mf: Mama)' : 'Nickname (e.g., Mom)' %>"
                        class="px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <input type="tel" name="phone" required
-                       placeholder="0712345678"
+                       placeholder="0xxxxxxxxx"
                        class="px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
             <button type="submit" class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl text-white font-semibold hover:scale-105 transition">
@@ -141,7 +141,7 @@
         </form>
     <% } else { %>
         <p class="text-yellow-400 text-xs text-center mt-3">
-            ⚠️ <%= lang === 'sw' ? 'Kikomo cha namba 5 kimefikiwa' : 'Maximum of 5 numbers reached' %>
+            ⚠️ <%= lang === 'sw' ? 'Kikomo cha namba 15 kimefikiwa' : 'Maximum of 15 numbers reached' %>
         </p>
     <% } %>
 </div>

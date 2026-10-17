@@ -23,6 +23,14 @@ mongoose.connect(MONGODB_URI)
         console.error('❌ MongoDB connection error:', err.message);
         console.error('⚠️  App will still run but data will NOT persist!');
     });
+    mongoose.connect(MONGODB_URI)
+    .then(() => {
+        console.log('✅ MongoDB connected successfully');
+        seedNetworkPrices();   // ← Add this line
+    })
+    .catch(err => {
+        console.error('❌ MongoDB connection error:', err.message);
+    });
 
 // ========== DATABASE SCHEMAS ==========
 const userSchema = new mongoose.Schema({
@@ -101,8 +109,128 @@ const flashSaleSchema = new mongoose.Schema({
     transactionCount: { type: Number, default: 0 },
     revenueGenerated: { type: Number, default: 0 }
 });
+// ========== NETWORK PRICES (Admin-Editable) ==========
+const networkPriceSchema = new mongoose.Schema({
+    networkId: { type: String, required: true, unique: true },
+    networkName: String,
+    logo: String,
+    paymentMethod: String,
+    smallPlans: [{
+        gb: Number,
+        price: Number,      // selling price
+        cost: { type: Number, default: 0 },  // wholesale cost (for profit calc)
+        note: String
+    }],
+    dataPlans: [{
+        gb: Number,
+        price: Number,
+        cost: { type: Number, default: 0 },
+        note: String
+    }],
+    updatedAt: { type: Date, default: Date.now }
+});
 
+// Seed default prices if none exist
+async function seedNetworkPrices() {
+    try {
+        const count = await NetworkPrice.countDocuments();
+        if (count > 0) return; // Already seeded
 
+        const defaults = [
+            {
+                networkId: 'yas',
+                networkName: 'Yas (Tigo)',
+                logo: '/images/Yas.png',
+                paymentMethod: 'Tigo Pesa',
+                smallPlans: [
+                    { gb: 1, price: 1200, cost: 1000, note: '1GB' },
+                    { gb: 2, price: 2400, cost: 2000, note: '2GB' },
+                    { gb: 3, price: 3600, cost: 3000, note: '3GB' },
+                    { gb: 5, price: 6000, cost: 5000, note: '5GB' },
+                    { gb: 10, price: 12000, cost: 10000, note: '10GB' }
+                ],
+                dataPlans: [
+                    { gb: 15, price: 15000, cost: 13000, note: 'Kila Mwezi' },
+                    { gb: 35, price: 30000, cost: 26000, note: 'Kila Mwezi' },
+                    { gb: 48, price: 40000, cost: 35000, note: 'Kila Mwezi' }
+                ]
+            },
+            {
+                networkId: 'halotel',
+                networkName: 'Halotel',
+                logo: '/images/Halotel.png',
+                paymentMethod: 'Halopesa',
+                smallPlans: [
+                    { gb: 1, price: 1200, cost: 1000, note: '1GB' },
+                    { gb: 2, price: 2400, cost: 2000, note: '2GB' },
+                    { gb: 3, price: 3600, cost: 3000, note: '3GB' },
+                    { gb: 5, price: 6000, cost: 5000, note: '5GB' },
+                    { gb: 10, price: 12000, cost: 10000, note: '10GB' }
+                ],
+                dataPlans: [
+                    { gb: 5,  price: 6000,  cost: 5500, note: 'Internet Bundle' },
+                    { gb: 6,  price: 7000,  cost: 6400, note: 'Internet Bundle' },
+                    { gb: 7,  price: 8000,  cost: 7300, note: 'Internet Bundle' },
+                    { gb: 8,  price: 9000,  cost: 8200, note: 'Internet Bundle' },
+                    { gb: 9,  price: 10000, cost: 9100, note: 'Internet Bundle' },
+                    { gb: 10, price: 11000, cost: 10000, note: 'Internet Bundle' },
+                    { gb: 15, price: 15000, cost: 13700, note: 'Internet Bundle' },
+                    { gb: 20, price: 20000, cost: 18300, note: 'Internet Bundle' },
+                    { gb: 25, price: 25000, cost: 22900, note: 'Internet Bundle' },
+                    { gb: 30, price: 30000, cost: 27500, note: 'Internet Bundle' }
+                ]
+            },
+            {
+                networkId: 'airtel',
+                networkName: 'Airtel',
+                logo: '/images/Airtel.png',
+                paymentMethod: 'AirtelMoney',
+                smallPlans: [
+                    { gb: 1, price: 1200, cost: 1000, note: '1GB' },
+                    { gb: 2, price: 2400, cost: 2000, note: '2GB' },
+                    { gb: 3, price: 3600, cost: 3000, note: '3GB' },
+                    { gb: 5, price: 6000, cost: 5000, note: '5GB' },
+                    { gb: 10, price: 12000, cost: 10000, note: '10GB' }
+                ],
+                dataPlans: [
+                    { gb: 5,  price: 5000,  cost: 4500, note: 'Data Bundle' },
+                    { gb: 10, price: 10000, cost: 9000, note: 'Data Bundle' },
+                    { gb: 20, price: 20000, cost: 18000, note: 'Data Bundle' },
+                    { gb: 30, price: 30000, cost: 27000, note: 'Data Bundle' }
+                ]
+            },
+            {
+                networkId: 'vodacom',
+                networkName: 'Vodacom',
+                logo: '/images/Vodacom.png',
+                paymentMethod: 'M-Pesa',
+                smallPlans: [
+                    { gb: 1, price: 1200, cost: 1000, note: '1GB' },
+                    { gb: 2, price: 2400, cost: 2000, note: '2GB' },
+                    { gb: 3, price: 3600, cost: 3000, note: '3GB' },
+                    { gb: 5, price: 6000, cost: 5000, note: '5GB' },
+                    { gb: 10, price: 12000, cost: 10000, note: '10GB' }
+                ],
+                dataPlans: [
+                    { gb: 10,  price: 15000,  cost: 13500, note: 'Siku 30' },
+                    { gb: 15,  price: 20000,  cost: 18000, note: 'Siku 30' },
+                    { gb: 30,  price: 30000,  cost: 27000, note: 'Siku 30' },
+                    { gb: 60,  price: 50000,  cost: 45000, note: 'Siku 30' },
+                    { gb: 75,  price: 60000,  cost: 54000, note: 'Siku 30' },
+                    { gb: 100, price: 75000,  cost: 67500, note: 'Siku 30' },
+                    { gb: 150, price: 100000, cost: 90000, note: 'Siku 30' }
+                ]
+            }
+        ];
+
+        await NetworkPrice.insertMany(defaults);
+        console.log('✅ Seeded network prices');
+    } catch (error) {
+        console.error('Seed prices error:', error);
+    }
+}
+
+const NetworkPrice = mongoose.model('NetworkPrice', networkPriceSchema);
 const BonusLog = mongoose.model('BonusLog', bonusLogSchema);
 const User = mongoose.model('User', userSchema);
 const Transaction = mongoose.model('Transaction', transactionSchema);
@@ -471,33 +599,49 @@ app.post('/buy', async (req, res) => {
         return res.redirect('/login');
     }
 
-    const bundleId = parseInt(req.body.bundleId);
-    const plan = PLANS[bundleId - 1] || PLANS[0];
-    const transactionId = uuidv4().substring(0, 8).toUpperCase();
+    try {
+        const bundleId = parseInt(req.body.bundleId);
+        const plan = PLANS[bundleId - 1] || PLANS[0];
+        const transactionId = uuidv4().substring(0, 8).toUpperCase();
 
-    // Get user's saved numbers
-    const user = await User.findOne({ phone: req.session.user.phone });
+        // Load network prices from DB
+        const networkPrices = await NetworkPrice.find();
+        const user = await User.findOne({ phone: req.session.user.phone });
 
-    res.render('payment', {
-        user: req.session.user,
-        bundle: {
-            id: bundleId,
-            gb: plan.gb,
-            name: plan.gb + 'GB SME Bundle',
-            price: plan.price,
-            originalPrice: plan.originalPrice,
-            data: plan.gb + 'GB'
-        },
-        providers: PROVIDERS,
-        transactionId: transactionId,
-        savedNumbers: user ? user.savedNumbers : [],
-        userPhone: req.session.user.phone,
-        error: null,
-        success: null
-    });
+        // Build the network plan object
+        const networkPlansData = {};
+        networkPrices.forEach(n => {
+            networkPlansData[n.networkId] = {
+                name: n.networkName,
+                smallPlans: n.smallPlans,
+                dataPlans: n.dataPlans
+            };
+        });
+
+        res.render('payment', {
+            user: req.session.user,
+            bundle: {
+                id: bundleId,
+                gb: plan.gb,
+                name: plan.gb + 'GB SME Bundle',
+                price: plan.price,
+                originalPrice: plan.originalPrice,
+                data: plan.gb + 'GB'
+            },
+            providers: PROVIDERS,
+            networkPlansData: networkPlansData,
+            transactionId: transactionId,
+            savedNumbers: user ? user.savedNumbers : [],
+            userPhone: req.session.user.phone,
+            error: null,
+            success: null
+        });
+    } catch (error) {
+        console.error('Buy route error:', error);
+        res.redirect('/dashboard');
+    }
 });
 
-// PROCESS PAYMENT
 // PROCESS PAYMENT
 app.post('/process-payment', async (req, res) => {
     if (!req.session.user) {
@@ -588,7 +732,7 @@ app.post('/process-payment', async (req, res) => {
         // 4. Save recipient if requested (DATA GIFTING) — MOVED INSIDE
         if (saveRecipient === 'yes' && recipientNickname && recipientNickname.trim()) {
             const buyer = await User.findOne({ phone: req.session.user.phone });
-            if (buyer && buyer.savedNumbers.length < 5) {
+            if (buyer && buyer.savedNumbers.length < 15) {
                 const isDuplicate = buyer.savedNumbers.some(n => n.phone === phoneNumber);
                 if (!isDuplicate && phoneNumber !== req.session.user.phone) {
                     buyer.savedNumbers.push({
@@ -657,9 +801,9 @@ app.post('/settings/saved-numbers/add', async (req, res) => {
         const user = await User.findOne({ phone: req.session.user.phone });
         if (!user) return res.redirect('/login');
 
-        if (user.savedNumbers.length >= 5) {
-            return res.redirect('/settings?error=maxnumbers');
-        }
+            if (user.savedNumbers.length >= 15) {
+        return res.redirect('/settings?error=maxnumbers');
+    }
 
         user.savedNumbers.push({
             nickname: nickname.trim(),
@@ -1077,7 +1221,63 @@ app.post('/admin/flash-sales/stop/:id', async (req, res) => {
         res.redirect('/admin/flash-sales?error=StopFailed');
     }
 });
+// ========== ADMIN PRICES ==========
+app.get('/admin/prices', async (req, res) => {
+    if (!req.session.isAdmin) {
+        return res.redirect('/admin');
+    }
 
+    try {
+        const networks = await NetworkPrice.find().sort({ networkId: 1 });
+        res.render('admin-prices', {
+            networks: networks,
+            success: req.query.success || null
+        });
+    } catch (error) {
+        console.error('Prices page error:', error);
+        res.redirect('/admin');
+    }
+});
+
+app.post('/admin/prices/save', async (req, res) => {
+    if (!req.session.isAdmin) {
+        return res.redirect('/admin');
+    }
+
+    try {
+        const networks = await NetworkPrice.find().sort({ networkId: 1 });
+
+        for (let netIndex = 0; netIndex < networks.length; netIndex++) {
+            const network = networks[netIndex];
+
+            // Update small plans
+            for (let planIndex = 0; planIndex < network.smallPlans.length; planIndex++) {
+                const priceKey = `network_${netIndex}_small_${planIndex}_price`;
+                const costKey = `network_${netIndex}_small_${planIndex}_cost`;
+                if (req.body[priceKey]) network.smallPlans[planIndex].price = parseInt(req.body[priceKey]);
+                if (req.body[costKey]) network.smallPlans[planIndex].cost = parseInt(req.body[costKey]);
+            }
+
+            // Update data plans
+            for (let planIndex = 0; planIndex < network.dataPlans.length; planIndex++) {
+                const priceKey = `network_${netIndex}_data_${planIndex}_price`;
+                const costKey = `network_${netIndex}_data_${planIndex}_cost`;
+                if (req.body[priceKey]) network.dataPlans[planIndex].price = parseInt(req.body[priceKey]);
+                if (req.body[costKey]) network.dataPlans[planIndex].cost = parseInt(req.body[costKey]);
+            }
+
+            network.updatedAt = new Date();
+            network.markModified('smallPlans');
+            network.markModified('dataPlans');
+            await network.save();
+        }
+
+        res.redirect('/admin/prices?success=1');
+    } catch (error) {
+        console.error('Save prices error:', error);
+        res.redirect('/admin/prices');
+    }
+});
  //=============ADMIN REFERRALS===============//
 app.get('/admin/referrals', async (req, res) => {
     if (!req.session.isAdmin) {
