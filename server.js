@@ -37,6 +37,11 @@ const userSchema = new mongoose.Schema({
     fullname: { type: String, required: true },
     phone: { type: String, required: true, unique: true, index: true },
     password: { type: String, required: true },
+    role: { type: String, default: 'b2c' }, // 👈 'b2c' or 'b2b_agent'
+    walletBalance: { type: Number, default: 0 }, // 👈 For Agent profits
+    monthlyGbPurchased: { type: Number, default: 0 }, // 👈 Tracks for Tier pricing
+    lastPurchaseMonth: { type: String, default: '' }, // 👈 Resets the GB counter every month
+    isBanned: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now },
     totalPurchases: { type: Number, default: 0 },
     lastPurchaseDate: { type: Date },
@@ -48,11 +53,7 @@ const userSchema = new mongoose.Schema({
     referralCount: { type: Number, default: 0 },
     referralRewarded: { type: Boolean, default: false },
     referralRewards: { type: Number, default: 0 },
-    savedNumbers: [{
-        nickname: { type: String, required: true },
-        phone: { type: String, required: true },
-        addedAt: { type: Date, default: Date.now }
-    }]
+    savedNumbers: [{ nickname: String, phone: String, addedAt: { type: Date, default: Date.now } }]
 });
 
 const transactionSchema = new mongoose.Schema({
@@ -109,6 +110,27 @@ const flashSaleSchema = new mongoose.Schema({
     transactionCount: { type: Number, default: 0 },
     revenueGenerated: { type: Number, default: 0 }
 });
+
+// ========== TIER PRICING HELPER ==========
+function getPriceForTier(baseGb, monthlyGb, isAgent) {
+    // Base prices (You can move these to the DB later)
+    const prices = {
+        1: { base: 1500, floor: 1200 },
+        2: { base: 2800, floor: 2300 },
+        5: { base: 6500, floor: 5500 },
+        10: { base: 12000, floor: 10500 }
+    };
+
+    const plan = prices[baseGb] || { base: 1500, floor: 1200 };
+    
+    if (!isAgent) return plan.base; // B2C users pay full price
+
+    // B2B Agent Tier logic
+    if (monthlyGb >= 60) return plan.floor; // Gold
+    if (monthlyGb >= 30) return plan.floor + 100; // Silver
+    if (monthlyGb >= 10) return plan.floor + 200; // Bronze
+    return plan.base; // Starter
+}
 // ========== NETWORK PRICES (Admin-Editable) ==========
 const networkPriceSchema = new mongoose.Schema({
     networkId: { type: String, required: true, unique: true },
@@ -161,11 +183,17 @@ async function seedNetworkPrices() {
                 logo: '/images/Halotel.png',
                 paymentMethod: 'Halopesa',
                 smallPlans: [
-                    { gb: 1, price: 1200, cost: 1000, note: '1GB' },
-                    { gb: 2, price: 2400, cost: 2000, note: '2GB' },
-                    { gb: 3, price: 3600, cost: 3000, note: '3GB' },
-                    { gb: 5, price: 6000, cost: 5000, note: '5GB' },
-                    { gb: 10, price: 12000, cost: 10000, note: '10GB' }
+    { gb: 1,  price: 1500,  originalPrice: 2100  },
+    { gb: 2,  price: 2800,  originalPrice: 4000  },
+    { gb: 3,  price: 4000,  originalPrice: 6000  },
+    { gb: 4,  price: 5200,  originalPrice: 8000  },
+    { gb: 5,  price: 6500,  originalPrice: 9000  },
+    { gb: 6,  price: 7800,  originalPrice: 11000 },
+    { gb: 7,  price: 9100,  originalPrice: 13000 },
+    { gb: 8,  price: 10400, originalPrice: 15000 },
+    { gb: 9,  price: 11700, originalPrice: 17000 },
+    { gb: 10, price: 13000, originalPrice: 19000 }
+
                 ],
                 dataPlans: [
                     { gb: 5,  price: 6000,  cost: 5500, note: 'Internet Bundle' },
@@ -186,11 +214,18 @@ async function seedNetworkPrices() {
                 logo: '/images/Airtel.png',
                 paymentMethod: 'AirtelMoney',
                 smallPlans: [
-                    { gb: 1, price: 1200, cost: 1000, note: '1GB' },
-                    { gb: 2, price: 2400, cost: 2000, note: '2GB' },
-                    { gb: 3, price: 3600, cost: 3000, note: '3GB' },
-                    { gb: 5, price: 6000, cost: 5000, note: '5GB' },
-                    { gb: 10, price: 12000, cost: 10000, note: '10GB' }
+                   
+    { gb: 1,  price: 1500,  originalPrice: 2100  },
+    { gb: 2,  price: 2800,  originalPrice: 4000  },
+    { gb: 3,  price: 4000,  originalPrice: 6000  },
+    { gb: 4,  price: 5200,  originalPrice: 8000  },
+    { gb: 5,  price: 6500,  originalPrice: 9000  },
+    { gb: 6,  price: 7800,  originalPrice: 11000 },
+    { gb: 7,  price: 9100,  originalPrice: 13000 },
+    { gb: 8,  price: 10400, originalPrice: 15000 },
+    { gb: 9,  price: 11700, originalPrice: 17000 },
+    { gb: 10, price: 13000, originalPrice: 19000 }
+
                 ],
                 dataPlans: [
                     { gb: 5,  price: 5000,  cost: 4500, note: 'Data Bundle' },
@@ -205,11 +240,17 @@ async function seedNetworkPrices() {
                 logo: '/images/Vodacom.png',
                 paymentMethod: 'M-Pesa',
                 smallPlans: [
-                    { gb: 1, price: 1200, cost: 1000, note: '1GB' },
-                    { gb: 2, price: 2400, cost: 2000, note: '2GB' },
-                    { gb: 3, price: 3600, cost: 3000, note: '3GB' },
-                    { gb: 5, price: 6000, cost: 5000, note: '5GB' },
-                    { gb: 10, price: 12000, cost: 10000, note: '10GB' }
+                  
+    { gb: 1,  price: 1500,  originalPrice: 2100  },
+    { gb: 2,  price: 2800,  originalPrice: 4000  },
+    { gb: 3,  price: 4000,  originalPrice: 6000  },
+    { gb: 4,  price: 5200,  originalPrice: 8000  },
+    { gb: 5,  price: 6500,  originalPrice: 9000  },
+    { gb: 6,  price: 7800,  originalPrice: 11000 },
+    { gb: 7,  price: 9100,  originalPrice: 13000 },
+    { gb: 8,  price: 10400, originalPrice: 15000 },
+    { gb: 9,  price: 11700, originalPrice: 17000 },
+    { gb: 10, price: 13000, originalPrice: 19000 }
                 ],
                 dataPlans: [
                     { gb: 10,  price: 15000,  cost: 13500, note: 'Siku 30' },
@@ -406,17 +447,35 @@ app.get('/register', (req, res) => {
 });
 app.post('/register', async (req, res) => {
     try {
-        const { fullname, phone, password, refCode } = req.body;
+        const { fullname, phone, password, refCode, role } = req.body;
+        const lang = req.session.lang || 'sw';
 
-        const existingUser = await User.findOne({ phone: phone });
-        if (existingUser) {
+        // 1. Validation with Dynamic Language
+        if (!fullname || !phone || !password) {
+            const errMsg = lang === 'sw' 
+                ? 'Tafadhali jaza Jina, Namba ya Simu, na Nenosiri.' 
+                : 'Please fill in Full Name, Phone Number, and Password.';
+            
             return res.render('register', { 
-    error: 'Phone number already registered!',
-    refCode: refCode || ''
-     });
+                error: errMsg, 
+                refCode: refCode || '' 
+            });
         }
 
-        // Generate unique referral code
+        // 2. Check if user already exists
+        const existingUser = await User.findOne({ phone: phone });
+        if (existingUser) {
+            const errMsg = lang === 'sw' 
+                ? 'Namba hii ya simu imesajiliwa tayari!' 
+                : 'Phone number already registered!';
+                
+            return res.render('register', { 
+                error: errMsg,
+                refCode: refCode || ''
+            });
+        }
+
+        // 3. Generate referral code
         let referralCode = generateReferralCode(fullname, phone);
         let codeExists = await User.findOne({ referralCode });
         let attempts = 0;
@@ -426,17 +485,16 @@ app.post('/register', async (req, res) => {
             attempts++;
         }
 
-        // Check if referred by someone
+        // 4. Check referrer
         let referredBy = null;
-        let referrerName = null;
         if (refCode && refCode.trim()) {
             const referrer = await User.findOne({ referralCode: refCode.trim().toUpperCase() });
             if (referrer && referrer.phone !== phone) {
                 referredBy = referrer.phone;
-                referrerName = referrer.fullname;
             }
         }
 
+        // 5. Create user
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = await User.create({
             fullname,
@@ -444,28 +502,30 @@ app.post('/register', async (req, res) => {
             password: hashedPassword,
             referralCode: referralCode,
             referredBy: referredBy,
-            totalPurchases: 0
+            totalPurchases: 0,
+            role: role || 'b2c'
         });
-
-        // Log the referral (but don't reward yet — only after first purchase)
-        if (referredBy) {
-            console.log(`🔗 ${fullname} (${phone}) was referred by ${referrerName} (${referredBy})`);
-        }
 
         req.session.user = { fullname: newUser.fullname, phone: newUser.phone };
         req.session.save((err) => {
-        if (err) {
-        console.error('Session save error:', err);
-        return res.render('register', { error: 'Session error. Please try again.', refCode: refCode || '' });
-    }
-    res.redirect('/dashboard');
-});
+            if (err) {
+                console.error('Session save error:', err);
+                return res.redirect('/login');
+            }
+            res.redirect('/dashboard');
+        });
+
     } catch (error) {
         console.error('Register error:', error);
-        res.render('register', {
-    error: 'Registration failed. Please try again.',
-    refCode: refCode || ''
-         });
+        const lang = req.session.lang || 'sw';
+        const errMsg = lang === 'sw' 
+            ? 'Usajili umeshindikana. Tafadhali jaribu tena.' 
+            : 'Registration failed. Please try again.';
+            
+        res.render('register', { 
+            error: errMsg, 
+            refCode: req.body.refCode || '' 
+        });
     }
 });
 
@@ -544,7 +604,7 @@ app.get('/dashboard', async (req, res) => {
             bonusStatus = await checkBonusUnlock(user);
         }
 
-        // 5. Get active announcements
+               // 5. Get active announcements
         const announcements = await Announcement.find({ active: true }).sort({ createdAt: -1 }).limit(5);
 
         // 6. Get referral stats
@@ -555,9 +615,10 @@ app.get('/dashboard', async (req, res) => {
             rewarded: user ? user.referralRewarded100MB : false
         };
 
-        // 7. Render
-        res.render('dashboard', {
+        // 7. Render (Make sure to pass dbUser!)
+               res.render('dashboard', {
             user: req.session.user,
+            dbUser: user, 
             bundles: allBundles,
             transactions: userTransactions.slice(0, 10),
             bonusStatus: bonusStatus,
@@ -595,28 +656,33 @@ app.get('/dashboard', async (req, res) => {
 
 // BUY BUNDLE
 app.post('/buy', async (req, res) => {
-    if (!req.session.user) {
-        return res.redirect('/login');
-    }
+    if (!req.session.user) return res.redirect('/login');
 
     try {
         const bundleId = parseInt(req.body.bundleId);
         const plan = PLANS[bundleId - 1] || PLANS[0];
         const transactionId = uuidv4().substring(0, 8).toUpperCase();
-
-        // Load network prices from DB
-        const networkPrices = await NetworkPrice.find();
+        
         const user = await User.findOne({ phone: req.session.user.phone });
+        
+        // 👈 APPLY TIER DISCOUNT LOGIC HERE
+        let finalPrice = plan.price;
+        if (user && user.role === 'b2b_agent') {
+            const monthlyGb = user.monthlyGbPurchased || 0;
+            if (monthlyGb >= 60) {
+                // Gold Tier: Base price minus 300 (e.g., 1500 - 300 = 1200)
+                finalPrice = Math.max(1200, plan.price - 300); 
+            } else if (monthlyGb >= 30) {
+                // Silver Tier: Base price minus 200
+                finalPrice = Math.max(1300, plan.price - 200);
+            } else if (monthlyGb >= 10) {
+                // Bronze Tier: Base price minus 100
+                finalPrice = Math.max(1400, plan.price - 100);
+            }
+        }
 
-        // Build the network plan object
-        const networkPlansData = {};
-        networkPrices.forEach(n => {
-            networkPlansData[n.networkId] = {
-                name: n.networkName,
-                smallPlans: n.smallPlans,
-                dataPlans: n.dataPlans
-            };
-        });
+        const networkPrices = await NetworkPrice.find();
+        // ... build networkPlansData ...
 
         res.render('payment', {
             user: req.session.user,
@@ -624,20 +690,13 @@ app.post('/buy', async (req, res) => {
                 id: bundleId,
                 gb: plan.gb,
                 name: plan.gb + 'GB SME Bundle',
-                price: plan.price,
+                price: finalPrice, // 👈 Pass the discounted price
                 originalPrice: plan.originalPrice,
                 data: plan.gb + 'GB'
             },
-            providers: PROVIDERS,
-            networkPlansData: networkPlansData,
-            transactionId: transactionId,
-            savedNumbers: user ? user.savedNumbers : [],
-            userPhone: req.session.user.phone,
-            error: null,
-            success: null
+            // ... rest of the variables ...
         });
     } catch (error) {
-        console.error('Buy route error:', error);
         res.redirect('/dashboard');
     }
 });
@@ -745,6 +804,22 @@ app.post('/process-payment', async (req, res) => {
             }
         }
 
+        // 1. Update the User's GB count and Tier FIRST
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const userToUpdate = await User.findOne({ phone: req.session.user.phone });
+        
+        if (userToUpdate) {
+            if (userToUpdate.lastPurchaseMonth !== currentMonth) {
+                userToUpdate.monthlyGbPurchased = 0;
+                userToUpdate.lastPurchaseMonth = currentMonth;
+            }
+            // Add the GBs to their monthly total
+            userToUpdate.monthlyGbPurchased += bundle.data === '1GB' ? 1 : parseInt(bundle.data);
+            userToUpdate.totalPurchases += 1;
+            userToUpdate.lastPurchaseDate = new Date();
+            await userToUpdate.save();
+        }
+
         // 5. Render success page
         res.render('payment-success', {
             user: req.session.user,
@@ -759,7 +834,7 @@ app.post('/process-payment', async (req, res) => {
             user: req.session.user,
             bundle: bundle,
             providers: PROVIDERS,
-            transactionId: transactionId,
+            transactionId: trsansactionId,
             error: 'Payment failed. Please try again.',
             success: null
         });

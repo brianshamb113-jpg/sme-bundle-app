@@ -2,6 +2,7 @@
 
 <div class="max-w-md mx-auto px-4 py-8">
     <div class="glass rounded-2xl p-8">
+        
         <div class="text-center mb-6">
             <span class="text-4xl">📝</span>
             <h2 class="text-2xl font-bold text-white mt-2">
@@ -19,33 +20,65 @@
         <% } %>
 
         <form action="/register" method="POST">
+            <!-- Account Type Selection -->
+            <div class="mb-5">
+                <label class="block text-white text-sm font-semibold mb-2">
+                    <%= lang === 'sw' ? 'Aina ya Akaunti' : 'Account Type' %>
+                </label>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="glass rounded-xl p-3 text-center cursor-pointer border border-transparent has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500/20 transition">
+                        <input type="radio" name="role" value="b2c" class="hidden" checked>
+                        <div class="text-2xl mb-1">👤</div>
+                        <div class="text-xs font-semibold text-white"><%= lang === 'sw' ? 'Mtu Binafsi' : 'Personal' %></div>
+                    </label>
+                    <label class="glass rounded-xl p-3 text-center cursor-pointer border border-transparent has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500/20 transition">
+                        <input type="radio" name="role" value="b2b_agent" class="hidden">
+                        <div class="text-2xl mb-1">🏪</div>
+                        <div class="text-xs font-semibold text-white"><%= lang === 'sw' ? 'Wakala (Reseller)' : 'Agent (Reseller)' %></div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Full Name -->
             <div class="mb-4">
-    <label class="block text-white text-sm font-semibold mb-2">
-        <%= lang === 'sw' ? 'Kodi ya Rufaa (Hiari)' : 'Referral Code (Optional)' %>
-    </label>
-    <input type="text" name="refCode" id="refCode" 
-           value="<%= typeof refCode !== 'undefined' ? refCode : '' %>"
-           placeholder="<%= lang === 'sw' ? 'Mfano: BRI1234' : 'e.g., BRI1234' %>"
-           class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
-    <p class="text-xs text-gray-400 mt-1">
-        <%= lang === 'sw' ? 'Ukiwa umealikwa na rafiki, weka kodi yake hapa.' : 'If a friend invited you, enter their code here.' %>
-    </p>
-</div>
+                <label class="block text-white text-sm font-semibold mb-2">
+                    <%= lang === 'sw' ? 'Jina Kamili' : 'Full Name' %>
+                </label>
+                <input type="text" name="fullname" required placeholder="<%= lang === 'sw' ? 'Jina lako kamili' : 'Your full name' %>"
+                       class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Referral Code Toggle -->
+            <div class="mb-4">
+                <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-300">
+                    <input type="checkbox" id="toggleRefCode" class="rounded accent-blue-500 w-4 h-4">
+                    <%= lang === 'sw' ? 'Nina Kodi ya Rufaa (Hiari)' : 'I have a Referral Code (Optional)' %>
+                </label>
+                <div id="refCodeContainer" class="mt-2 hidden">
+                    <input type="text" name="refCode" id="refCode" placeholder="<%= lang === 'sw' ? 'Mfano: BRI1234' : 'e.g., BRI1234' %>"
+                           class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <!-- Phone Number -->
             <div class="mb-4">
                 <label class="block text-white text-sm font-semibold mb-2">
                     <%= lang === 'sw' ? 'Namba ya Simu' : 'Phone Number' %>
                 </label>
-                <input type="tel" name="phone" placeholder="0xxxxxxxxx" required
+                <input type="tel" name="phone" required placeholder="0xxxxxxxxx"
                        class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
+
+            <!-- Password -->
             <div class="mb-6">
                 <label class="block text-white text-sm font-semibold mb-2">
                     <%= lang === 'sw' ? 'Nenosiri' : 'Password' %>
                 </label>
-                <input type="password" name="password" placeholder="<%= lang === 'sw' ? 'Unda nenosiri' : 'Create a password' %>" required minlength="6"
+                <input type="password" name="password" required placeholder="<%= lang === 'sw' ? 'Unda nenosiri' : 'Create a password' %>" minlength="6"
                        class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
-            <button type="submit" class="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl font-semibold text-white hover:scale-105 transition duration-300">
+
+            <button type="submit" class="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl font-semibold text-white hover:scale-105 transition shadow-lg">
                 <%= lang === 'sw' ? 'Jisajili' : 'Register' %>
             </button>
         </form>
@@ -64,13 +97,12 @@
         </div>
     </div>
 </div>
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const refFromUrl = urlParams.get('ref');
-        if (refFromUrl) {
-            document.getElementById('refCode').value = refFromUrl.toUpperCase();
-        }
+
+<script>
+    // Toggle referral code input
+    document.getElementById('toggleRefCode').addEventListener('change', function() {
+        const container = document.getElementById('refCodeContainer');
+        container.classList.toggle('hidden', !this.checked);
     });
 </script>
 

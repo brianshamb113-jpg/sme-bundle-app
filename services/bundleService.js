@@ -1,4 +1,3 @@
-// services/bundleService.js
 const { PLANS } = require('../config/plans');
 
 class BundleService {
@@ -9,7 +8,6 @@ class BundleService {
 
     async getBundles() {
         // Generate bundles from PLANS config
-        // Each plan becomes a bundle that works for all networks
         const bundles = PLANS.map((plan, index) => ({
             id: index + 1,
             name: `${plan.gb}GB SME Bundle`,
