@@ -56,6 +56,19 @@ const userSchema = new mongoose.Schema({
     savedNumbers: [{ nickname: String, phone: String, addedAt: { type: Date, default: Date.now } }]
 });
 
+const withdrawalSchema = new mongoose.Schema({
+    agentPhone: { type: String, required: true, index: true },
+    agentName: { type: String, required: true },
+    amount: { type: Number, required: true },
+    payoutNumber: { type: String, required: true }, // The M-Pesa/Tigo number they want money sent to
+    status: { type: String, default: 'pending' }, // 'pending', 'approved', 'rejected'
+    dateRequested: { type: Date, default: Date.now },
+    dateProcessed: { type: Date },
+    adminNote: { type: String, default: '' }
+});
+
+const Withdrawal = mongoose.model('Withdrawal', withdrawalSchema);
+
 const transactionSchema = new mongoose.Schema({
     id: { type: String, required: true, index: true },
     phone: { type: String, required: true, index: true },
@@ -859,6 +872,122 @@ app.get('/transactions', async (req, res) => {
             user: req.session.user,
             transactions: []
         });
+    }
+});
+
+// ========== AGENT WITHDRAWALS ==========
+app.get('/agent/withdraw', async (req, res) => {
+    if (!req.session.user) return res.redirect('/login');
+
+    try {
+        const user = await User.findOne({ phone: req.session.user.phone });
+        if (!user || user.role !== 'b2b_agent') return res.redirect('/dashboard');
+
+        const history = await Withdrawal.find({ agentPhone: user.phone }).sort({ dateRequested: -1 });
+
+        res.render('agent-withdraw', {
+            user: req.session.user,
+            dbUser: user,
+            history: history,
+            error: req.query.error || null,
+            success: req.query.success || null
+        });
+    } catch (error) {
+        console.error(error);
+        res.redirect('/dashboard');
+    }
+});
+
+app.post('/agent/withdraw', async (req, res) => {
+    if (!req.session.user) return res.redirect('/login');
+
+    try {
+        const { amount, payoutNumber } = req.body;
+        const withdrawAmount = parseInt(amount);
+        const minAmount = 5000; // Minimum 5,000 TZS to withdraw
+
+        const user = await User.findOne({ phone: req.session.user.phone });
+
+        // Validations
+        if (!withdrawAmount || withdrawAmount < minAmount) {
+            return res.redirect('/agent/withdraw?error=min_amount');
+        }
+        if (user.walletBalance < withdrawAmount) {
+            return res.redirect('/agent/withdraw?error=insufficient_funds');
+        }
+        if (!payoutNumber || payoutNumber.length < 10) {
+            return res.redirect('/agent/withdraw?error=invalid_number');
+        }
+
+        // Deduct from wallet immediately to prevent double spending
+        user.walletBalance -= withdrawAmount;
+        await user.save();
+
+        // Create withdrawal request
+        await Withdrawal.create({
+            agentPhone: user.phone,
+            agentName: user.fullname,
+            amount: withdrawAmount,
+            payoutNumber: payoutNumber,
+            status: 'pending'
+        });
+
+        res.redirect('/agent/withdraw?success=requested');
+    } catch (error) {
+        console.error('Withdraw error:', error);
+        res.redirect('/agent/withdraw');
+    }
+});
+
+// ========== ADMIN WITHDRAWAL MANAGEMENT ==========
+app.get('/admin/withdrawals', async (req, res) => {
+    if (!req.session.isAdmin) return res.redirect('/admin');
+
+    try {
+        const withdrawals = await Withdrawal.find().sort({ dateRequested: -1 });
+        res.render('admin-withdrawals', {
+            withdrawals: withdrawals,
+            success: req.query.success || null
+        });
+    } catch (error) {
+        res.redirect('/admin');
+    }
+});
+
+app.post('/admin/withdrawals/process/:id', async (req, res) => {
+    if (!req.session.isAdmin) return res.redirect('/admin');
+
+    try {
+        const { action } = req.body; // 'approve' or 'reject'
+        const withdrawal = await Withdrawal.findById(req.params.id);
+
+        if (!withdrawal || withdrawal.status !== 'pending') {
+            return res.redirect('/admin/withdrawals');
+        }
+
+        if (action === 'approve') {
+            withdrawal.status = 'approved';
+            withdrawal.dateProcessed = new Date();
+            await withdrawal.save();
+            // Note: You will manually send the money to their payoutNumber via M-Pesa. 
+            // The app just marks it as done.
+        } else if (action === 'reject') {
+            withdrawal.status = 'rejected';
+            withdrawal.dateProcessed = new Date();
+            await withdrawal.save();
+
+            // Refund the agent's wallet
+            const user = await User.findOne({ phone: withdrawal.agentPhone });
+            if (user) {
+                user.walletBalance += withdrawal.amount;
+                await user.save();
+            }
+        }
+
+        res.redirect('/admin/withdrawals?success=processed');
+    } catch (error) {
+        console.error(error);
+        res.redirect('/admin/withdrawals');
     }
 });
 

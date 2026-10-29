@@ -18,25 +18,43 @@
             </div>
         </div>    
     </div>
-    
+
     <p class="text-xs text-gray-500 mb-2">DEBUG: Your role in DB is [<%= dbUser ? dbUser.role : 'undefined' %>]</p>
-    <!-- Wallet & Tier Card (Only for Agents) -->
+   <!-- Wallet & Tier Card (Only for Agents) -->
 <% if (typeof dbUser !== 'undefined' && dbUser && dbUser.role === 'b2b_agent') { %>
     <div class="glass rounded-2xl p-6 mb-6 border-2 border-green-500/40 bg-gradient-to-r from-green-500/10 to-emerald-600/10">
         <div class="flex justify-between items-center flex-wrap gap-4">
             <div>
-                <div class="text-sm text-green-300 font-semibold mb-1">🏪 B2B Agent Account</div>
-                <div class="text-3xl font-bold text-white">TZS <%= dbUser.walletBalance ? dbUser.walletBalance.toLocaleString() : 0 %></div>
-                <div class="text-xs text-gray-400 mt-1">Wallet Balance</div>
+                <div class="text-sm text-green-300 font-semibold mb-1">
+                    🏪 <%= lang === 'sw' ? 'Akaunti ya Wakala' : 'B2B Agent Account' %>
+                </div>
+                <div class="text-3xl font-bold text-white">
+                    TZS <%= dbUser.walletBalance ? dbUser.walletBalance.toLocaleString() : 0 %>
+                </div>
+                <div class="text-xs text-gray-400 mt-1">
+                    <%= lang === 'sw' ? 'Salio la Wallet' : 'Wallet Balance' %>
+                </div>
             </div>
             <div class="text-right">
-                <div class="text-sm text-gray-400">Monthly Volume</div>
-                <div class="text-xl font-bold text-blue-400"><%= dbUser.monthlyGbPurchased || 0 %> GB</div>
+                <div class="text-sm text-gray-400">
+                    <%= lang === 'sw' ? 'Kiasi cha Mwezi' : 'Monthly Volume' %>
+                </div>
+                <div class="text-xl font-bold text-blue-400">
+                    <%= dbUser.monthlyGbPurchased || 0 %> GB
+                </div>
                 <div class="text-xs text-gray-500 mt-1">
-                    <%= (dbUser.monthlyGbPurchased || 0) >= 60 ? '🥇 Gold Tier' : (dbUser.monthlyGbPurchased || 0) >= 30 ? '🥈 Silver Tier' : (dbUser.monthlyGbPurchased || 0) >= 10 ? '🥉 Bronze Tier' : 'Starter Tier' %>
+                    <%= (dbUser.monthlyGbPurchased || 0) >= 60 ? '🥇 ' + (lang === 'sw' ? 'Daraja la Dhahabu' : 'Gold Tier') : 
+                        (dbUser.monthlyGbPurchased || 0) >= 30 ? '🥈 ' + (lang === 'sw' ? 'Daraja la Fedha' : 'Silver Tier') : 
+                        (dbUser.monthlyGbPurchased || 0) >= 10 ? '🥉 ' + (lang === 'sw' ? 'Daraja la Shaba' : 'Bronze Tier') : 
+                        (lang === 'sw' ? 'Daraja la Kuanzia' : 'Starter Tier') %>
                 </div>
             </div>
         </div>
+        
+        <!-- WITHDRAW BUTTON -->
+        <a href="/agent/withdraw" class="mt-5 w-full block text-center px-6 py-3 bg-green-600 rounded-xl text-white font-bold hover:bg-green-700 transition shadow-lg">
+            🏦 <%= lang === 'sw' ? 'Toa Pesa Kupitia Simu' : 'Withdraw Funds to Mobile Money' %>
+        </a>
     </div>
 <% } %>
 
